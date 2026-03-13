@@ -11,8 +11,8 @@ services:
     volumes:
       # Bind mounts into .devcontainer/.data/ keep all state local to the project.
       # The .data/ directory is gitignored by install.sh.
-      - ..:/workspace:cached
-      - /workspace/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
+      - ..:__WORKSPACE_FOLDER__:cached
+      - __WORKSPACE_FOLDER__/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/node/.claude
     environment:

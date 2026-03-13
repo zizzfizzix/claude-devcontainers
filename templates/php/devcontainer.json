@@ -2,7 +2,7 @@
   "name": "PHP / WordPress Sandbox",
   "dockerComposeFile": "docker-compose.yml",
   "service": "devcontainer",
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "__WORKSPACE_FOLDER__",
   "customizations": {
     "vscode": {
       "extensions": [

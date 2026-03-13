@@ -11,8 +11,8 @@ services:
       - NET_ADMIN
       - NET_RAW
     volumes:
-      - ..:/workspace:cached
-      - /workspace/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
+      - ..:__WORKSPACE_FOLDER__:cached
+      - __WORKSPACE_FOLDER__/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/vscode/.claude
     environment:

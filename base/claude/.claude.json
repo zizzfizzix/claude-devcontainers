@@ -5,7 +5,7 @@
   "hasIdeOnboardingBeenShown": { "vscode": true },
   "autoUpdates": true,
   "projects": {
-    "/workspace": {
+    "__WORKSPACE_FOLDER__": {
       "hasTrustDialogAccepted": true
     }
   }

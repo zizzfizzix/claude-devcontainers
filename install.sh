@@ -30,33 +30,26 @@ esac
 echo "Installing '${TEMPLATE}' devcontainer into ${DEST}..."
 mkdir -p "$DEST"
 
-# Fetch every file listed in the template's manifest (format: src:dest,
-# where src is relative to the repo root and dest is relative to DEST).
-MANIFEST=$(curl -fsSL "${REPO}/templates/${TEMPLATE}/manifest.txt")
-while IFS=: read -r src dest; do
-  [[ -z "$src" || "$src" == \#* ]] && continue
-  mkdir -p "${DEST}/$(dirname "$dest")"
-  curl -fsSL "${REPO}/${src}" -o "${DEST}/${dest}"
-done <<< "$MANIFEST"
-
-[[ -f "${DEST}/init-firewall.sh" ]] && chmod +x "${DEST}/init-firewall.sh"
+WORKSPACE_FOLDER="/${TARGET##*/}"
 
 # Create the bind-mount data directories and keep them out of git.
-mkdir -p "${DEST}/.data/history" "${DEST}/.data/claude" "${DEST}/.data/proxy"
+mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy"
 
-# Pre-populate Claude config so the first-run wizard and IDE-integration
-# prompts are skipped on container start.
-CLAUDE_JSON="${DEST}/.data/claude/.claude.json"
-if [[ ! -f "$CLAUDE_JSON" ]]; then
-  curl -fsSL "${REPO}/base/claude/.claude.json" -o "$CLAUDE_JSON"
-  echo "  Wrote default Claude state to ${CLAUDE_JSON}"
-fi
-
-CLAUDE_SETTINGS="${DEST}/.data/claude/settings.json"
-if [[ ! -f "$CLAUDE_SETTINGS" ]]; then
-  curl -fsSL "${REPO}/base/claude/settings.json" -o "$CLAUDE_SETTINGS"
-  echo "  Wrote default Claude settings to ${CLAUDE_SETTINGS}"
-fi
+# Fetch every file listed in the template's manifest.
+# Format: src:dest[:init]
+#   src   — path relative to repo root
+#   dest  — path relative to DEST
+#   init  — optional flag: skip if the destination file already exists
+MANIFEST=$(curl -fsSL "${REPO}/templates/${TEMPLATE}/manifest.txt")
+while IFS=: read -r src dest flag; do
+  [[ -z "$src" || "$src" == \#* ]] && continue
+  outfile="${DEST}/${dest}"
+  [[ "$flag" == "init" && -f "$outfile" ]] && continue
+  mkdir -p "$(dirname "$outfile")"
+  curl -fsSL "${REPO}/${src}" \
+    | sed "s|__WORKSPACE_FOLDER__|${WORKSPACE_FOLDER}|g" \
+    > "$outfile"
+done <<< "$MANIFEST"
 
 GITIGNORE="${TARGET}/.gitignore"
 if ! grep -qF '.devcontainer/.data/' "$GITIGNORE" 2>/dev/null; then

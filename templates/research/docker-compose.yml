@@ -12,7 +12,7 @@ services:
       - ./.data/claude:/home/vscode/.claude
       - ./.data/certs:/proxy-certs:ro
     environment:
-      NODE_OPTIONS: "--use-openssl-ca"
+      NODE_EXTRA_CA_CERTS: "/proxy-certs/mitmca.pem"
       CLAUDE_CONFIG_DIR: /home/vscode/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
@@ -25,6 +25,8 @@ services:
   claude-proxy:
     build:
       context: ./proxy
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./.data/proxy:/data
       - ./.data/certs:/certs

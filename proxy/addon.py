@@ -110,6 +110,17 @@ def _start_health_server() -> None:
 # ---------------------------------------------------------------------------
 
 class TokenSwapAddon:
+    def tls_clienthello(self, data) -> None:
+        """Override server address with SNI hostname.
+
+        In transparent mode via DNS spoofing + iptables REDIRECT, SO_ORIGINAL_DST
+        returns our own IP.  Use the TLS SNI to determine the real upstream host.
+        """
+        sni = data.client_hello.sni
+        if sni and data.context.server.address:
+            port = data.context.server.address[1]
+            data.context.server.address = (sni, port)
+
     def running(self) -> None:
         # Publish the mitmproxy CA cert to the shared volume so the
         # devcontainer postStartCommand can trust it.

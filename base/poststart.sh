@@ -6,10 +6,9 @@ if [ -f /usr/local/bin/init-firewall.sh ]; then
   sudo /usr/local/bin/init-firewall.sh
 fi
 
-# Spoof Anthropic hostnames to the mitmproxy container
+# Point Anthropic hostnames at the proxy container
 PROXY_IP=$(getent hosts claude-proxy | awk '{print $1}')
-printf "%s\tapi.anthropic.com\n%s\tplatform.claude.com\n" "$PROXY_IP" "$PROXY_IP" \
-  | sudo tee -a /etc/hosts
+printf "%s\tapi.anthropic.com\n%s\tplatform.claude.com\n" "$PROXY_IP" "$PROXY_IP" | sudo tee -a /etc/hosts
 
 # Trust the mitmproxy CA cert (system store + certifi bundle)
 sudo cp /proxy-certs/mitmca.pem /usr/local/share/ca-certificates/claude-proxy-ca.crt

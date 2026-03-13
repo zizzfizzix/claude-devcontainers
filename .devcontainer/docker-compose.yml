@@ -16,7 +16,8 @@ services:
       - ./.data/claude:/home/node/.claude
       - ./.data/certs:/proxy-certs:ro
     environment:
-      NODE_OPTIONS: "--max-old-space-size=4096 --use-openssl-ca"
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      NODE_EXTRA_CA_CERTS: "/proxy-certs/mitmca.pem"
       CLAUDE_CONFIG_DIR: /home/node/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
@@ -29,6 +30,8 @@ services:
   claude-proxy:
     build:
       context: ../proxy
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./.data/proxy:/data
       - ./.data/certs:/certs

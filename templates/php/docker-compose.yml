@@ -17,7 +17,8 @@ services:
       - ./.data/claude:/home/vscode/.claude
       - ./.data/certs:/proxy-certs:ro
     environment:
-      NODE_OPTIONS: "--max-old-space-size=4096 --use-openssl-ca"
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      NODE_EXTRA_CA_CERTS: "/proxy-certs/mitmca.pem"
       CLAUDE_CONFIG_DIR: /home/vscode/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       EXTRA_ALLOWED_DOMAINS: "packagist.org repo.packagist.org api.wordpress.org downloads.wordpress.org getcomposer.org"
@@ -31,6 +32,8 @@ services:
   claude-proxy:
     build:
       context: ./proxy
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./.data/proxy:/data
       - ./.data/certs:/certs

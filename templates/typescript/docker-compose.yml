@@ -1,0 +1,44 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      args:
+        TZ: ${TZ:-Europe/London}
+        GIT_DELTA_VERSION: "0.18.2"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      # Bind mounts into .devcontainer/.data/ keep all state local to the project.
+      # The .data/ directory is gitignored by install.sh.
+      - ..:/workspace:cached
+      - /workspace/.devcontainer/.data/proxy  # anonymous volume hides proxy credentials inside the container
+      - ./.data/history:/commandhistory
+      - ./.data/claude:/home/node/.claude
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      CLAUDE_CONFIG_DIR: /home/node/.claude
+      POWERLEVEL9K_DISABLE_GITSTATUS: "true"
+      # Route all Claude API calls through the credential proxy.
+      ANTHROPIC_BASE_URL: "http://claude-proxy:3100"
+    depends_on:
+      claude-proxy:
+        condition: service_healthy  # proxy server is up (credentials may not be loaded yet)
+    # VS Code overrides this — it's here so plain `docker compose up` doesn't exit.
+    command: sleep infinity
+
+  claude-proxy:
+    build:
+      context: ./proxy
+    volumes:
+      - ./.data/proxy:/data
+    restart: unless-stopped
+    environment:
+      CREDENTIALS_FILE: /data/credentials.json
+      PORT: "3100"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

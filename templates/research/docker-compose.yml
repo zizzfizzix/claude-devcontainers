@@ -1,0 +1,36 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      args:
+        TZ: ${TZ:-Europe/London}
+        GIT_DELTA_VERSION: "0.18.2"
+    volumes:
+      - ..:/workspace:cached
+      - /workspace/.devcontainer/.data/proxy  # anonymous volume hides proxy credentials inside the container
+      - ./.data/history:/commandhistory
+      - ./.data/claude:/home/vscode/.claude
+    environment:
+      CLAUDE_CONFIG_DIR: /home/vscode/.claude
+      POWERLEVEL9K_DISABLE_GITSTATUS: "true"
+      ANTHROPIC_BASE_URL: "http://claude-proxy:3100"
+    depends_on:
+      claude-proxy:
+        condition: service_healthy
+    command: sleep infinity
+
+  claude-proxy:
+    build:
+      context: ./proxy
+    volumes:
+      - ./.data/proxy:/data
+    restart: unless-stopped
+    environment:
+      CREDENTIALS_FILE: /data/credentials.json
+      PORT: "3100"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

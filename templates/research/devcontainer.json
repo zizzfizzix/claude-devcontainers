@@ -1,13 +1,8 @@
 {
   "name": "Research / Second Brain",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".",
-    "args": {
-      "TZ": "${localEnv:TZ:Europe/London}",
-      "GIT_DELTA_VERSION": "0.18.2"
-    }
-  },
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -32,15 +27,5 @@
       }
     }
   },
-  "remoteUser": "vscode",
-  "mounts": [
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
-  ],
-  "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
-    "POWERLEVEL9K_DISABLE_GITSTATUS": "true"
-  },
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
-  "workspaceFolder": "/workspace"
+  "remoteUser": "vscode"
 }

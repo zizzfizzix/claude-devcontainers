@@ -47,7 +47,65 @@ chmod +x "${DEST}/init-firewall.sh"
 fetch_dockerfile "templates/${TEMPLATE}/Dockerfile"
 fetch "templates/${TEMPLATE}/devcontainer.json" "${DEST}/devcontainer.json"
 
-echo "Done. ${DEST}:"
-ls -1 "$DEST"
+# Templates that include a docker-compose.yml also ship a credential-proxy sidecar.
+# Detect this by trying to fetch the file (exit code 0 = exists).
+HAS_PROXY=false
+COMPOSE_URL="${REPO}/templates/${TEMPLATE}/docker-compose.yml"
+if curl -fsSL --output /dev/null --silent --fail "$COMPOSE_URL"; then
+  HAS_PROXY=true
+  fetch "templates/${TEMPLATE}/docker-compose.yml" "${DEST}/docker-compose.yml"
+
+  mkdir -p "${DEST}/proxy"
+  fetch "proxy/Dockerfile" "${DEST}/proxy/Dockerfile"
+  fetch "proxy/server.js"  "${DEST}/proxy/server.js"
+  fetch "proxy/login.js"   "${DEST}/proxy/login.js"
+
+  # Create the bind-mount data directories and keep them out of git.
+  mkdir -p "${DEST}/.data/history" "${DEST}/.data/claude" "${DEST}/.data/proxy"
+  GITIGNORE="${TARGET}/.gitignore"
+  if ! grep -qF '.devcontainer/.data/' "$GITIGNORE" 2>/dev/null; then
+    printf '\n# Claude Code devcontainer — local state (credentials, history)\n.devcontainer/.data/\n' >> "$GITIGNORE"
+    echo "  Added .devcontainer/.data/ to ${GITIGNORE}"
+  fi
+fi
+
 echo ""
-echo "Open ${TARGET} in VS Code → Reopen in Container."
+
+if [[ "$HAS_PROXY" == "true" ]]; then
+  # Start the proxy sidecar and run OAuth login before the user opens VS Code.
+  # login.js only needs a browser callback (no stdin), so this works when piped from curl.
+  if ! command -v docker &>/dev/null; then
+    echo "Docker not found — skipping proxy setup."
+    echo "To complete setup later, run:"
+    echo "  docker compose -f ${DEST}/docker-compose.yml up -d --wait claude-proxy"
+    echo "  docker compose -f ${DEST}/docker-compose.yml exec claude-proxy node /app/login.js"
+    echo "Then open ${TARGET} in VS Code → Reopen in Container."
+    exit 0
+  fi
+
+  echo "Building credential proxy..."
+  docker compose -f "${DEST}/docker-compose.yml" build claude-proxy
+
+  echo "Starting credential proxy..."
+  docker compose -f "${DEST}/docker-compose.yml" up -d --wait claude-proxy
+
+  # Check if credentials are already present (e.g. re-running install on an existing setup).
+  HEALTHZ=$(docker compose -f "${DEST}/docker-compose.yml" exec claude-proxy \
+    wget -qO- http://localhost:3100/healthz 2>/dev/null || echo '{}')
+
+  if echo "$HEALTHZ" | grep -q '"credentialsLoaded":true'; then
+    echo "Credentials already loaded — skipping login."
+  else
+    echo ""
+    # Run login in a temporary container with port 1455 published only for the
+    # duration of the OAuth flow. The container shares the .data/proxy volume
+    # so credentials land where the main proxy service reads them.
+    docker compose -f "${DEST}/docker-compose.yml" run --rm -p 1455:1455 claude-proxy node /app/login.js
+  fi
+
+  echo ""
+  echo "Open ${TARGET} in VS Code → Reopen in Container."
+  echo "Credentials are stored in a Docker volume and will persist across rebuilds."
+else
+  echo "Open ${TARGET} in VS Code → Reopen in Container."
+fi

@@ -62,6 +62,22 @@ if curl -fsSL --output /dev/null --silent --fail "$COMPOSE_URL"; then
 
   # Create the bind-mount data directories and keep them out of git.
   mkdir -p "${DEST}/.data/history" "${DEST}/.data/claude" "${DEST}/.data/proxy"
+
+  # Pre-populate Claude config so the first-run wizard and IDE-integration
+  # prompts are skipped on container start.
+  # Claude stores onboarding state in .claude.json (internal) and user
+  # preferences in settings.json (exposed settings).
+  CLAUDE_JSON="${DEST}/.data/claude/.claude.json"
+  if [[ ! -f "$CLAUDE_JSON" ]]; then
+    fetch "base/claude/.claude.json" "$CLAUDE_JSON"
+    echo "  Wrote default Claude state to ${CLAUDE_JSON}"
+  fi
+
+  CLAUDE_SETTINGS="${DEST}/.data/claude/settings.json"
+  if [[ ! -f "$CLAUDE_SETTINGS" ]]; then
+    fetch "base/claude/settings.json" "$CLAUDE_SETTINGS"
+    echo "  Wrote default Claude settings to ${CLAUDE_SETTINGS}"
+  fi
   GITIGNORE="${TARGET}/.gitignore"
   if ! grep -qF '.devcontainer/.data/' "$GITIGNORE" 2>/dev/null; then
     printf '\n# Claude Code devcontainer — local state (credentials, history)\n.devcontainer/.data/\n' >> "$GITIGNORE"

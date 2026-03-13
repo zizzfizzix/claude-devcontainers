@@ -1,0 +1,7 @@
+{
+  "hasCompletedOnboarding": true,
+  "lastOnboardingVersion": "99.99.99",
+  "shiftEnterKeyBindingInstalled": true,
+  "hasIdeOnboardingBeenShown": { "vscode": true },
+  "autoUpdates": true
+}

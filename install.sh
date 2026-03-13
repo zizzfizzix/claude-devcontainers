@@ -59,31 +59,6 @@ if ! grep -qF '.devcontainer/.data/' "$GITIGNORE" 2>/dev/null; then
 fi
 
 echo ""
-
-if ! command -v docker &>/dev/null; then
-  echo "Docker not found — skipping proxy setup."
-  echo "To complete setup later, run:"
-  echo "  docker compose -f ${DEST}/docker-compose.yml up -d --wait claude-proxy"
-  echo "Then open ${TARGET} in VS Code → Reopen in Container and run: claude /login"
-  exit 0
-fi
-
-echo "Building proxy..."
-docker compose -f "${DEST}/docker-compose.yml" build claude-proxy
-
-echo "Starting proxy..."
-docker compose -f "${DEST}/docker-compose.yml" up -d --wait claude-proxy
-
-HEALTHZ=$(docker compose -f "${DEST}/docker-compose.yml" exec claude-proxy \
-  wget -qO- http://localhost:3100/healthz 2>/dev/null || echo '{}')
-
-if echo "$HEALTHZ" | grep -q '"credentialsLoaded":true'; then
-  echo "Credentials already loaded."
-else
-  echo "No credentials yet — you will be prompted to log in inside the devcontainer."
-fi
-
-echo ""
 echo "Open ${TARGET} in VS Code → Reopen in Container."
 echo "On first use, run: claude /login"
 echo "Credentials are stored in .devcontainer/.data/ and persist across rebuilds."

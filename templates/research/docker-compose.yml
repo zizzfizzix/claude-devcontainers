@@ -5,16 +5,21 @@ services:
       args:
         TZ: ${TZ:-Europe/London}
         GIT_DELTA_VERSION: "0.18.2"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     volumes:
       - ..:__WORKSPACE_FOLDER__:cached
-      - __WORKSPACE_FOLDER__/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
+      - __WORKSPACE_FOLDER__/.devcontainer/.data/proxy # anonymous volume shadows real credentials
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/vscode/.claude
+      - ./.data/certs:/proxy-certs:ro
     environment:
+      NODE_OPTIONS: "--use-openssl-ca"
       CLAUDE_CONFIG_DIR: /home/vscode/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
-      ANTHROPIC_API_KEY: "proxy-handled" # replaced by the sidecar proxy
-      ANTHROPIC_BASE_URL: "http://claude-proxy:3100"
+      SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
     depends_on:
       claude-proxy:
         condition: service_healthy
@@ -25,10 +30,8 @@ services:
       context: ./proxy
     volumes:
       - ./.data/proxy:/data
+      - ./.data/certs:/certs
     restart: unless-stopped
-    environment:
-      CREDENTIALS_FILE: /data/credentials.json
-      PORT: "3100"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3100/healthz"]
       interval: 10s

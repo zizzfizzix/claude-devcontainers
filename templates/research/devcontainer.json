@@ -27,5 +27,7 @@
       }
     }
   },
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  "postStartCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/poststart.sh",
+  "waitFor": "postStartCommand"
 }

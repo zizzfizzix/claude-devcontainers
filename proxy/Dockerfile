@@ -1,16 +1,14 @@
-FROM node:22-alpine
+FROM ghcr.io/mitmproxy/mitmproxy:latest
 
-WORKDIR /app
+COPY addon.py /app/
 
-# No package.json needed — zero npm dependencies.
-COPY server.js login.js ./
+RUN mkdir -p /data /certs
 
-# Credentials volume mount point
-RUN mkdir -p /data
+EXPOSE 443 3100
 
-EXPOSE 3100
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
+  CMD wget -qO- http://localhost:3100/healthz || exit 1
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
-  CMD wget -qO- http://localhost:3100/healthz 2>/dev/null || exit 1
-
-CMD ["node", "/app/server.js"]
+CMD ["mitmdump", "--mode", "transparent", "--listen-host", "::", \
+     "--listen-port", "443", "--set", "confdir=/data/mitmproxy", \
+     "--set", "block_global=false", "-s", "/app/addon.py"]

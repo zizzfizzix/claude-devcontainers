@@ -1,8 +1,8 @@
 templates/research/Dockerfile:Dockerfile
 templates/research/devcontainer.json:devcontainer.json
 templates/research/docker-compose.yml:docker-compose.yml
+base/poststart.sh:poststart.sh
 proxy/Dockerfile:proxy/Dockerfile
-proxy/server.js:proxy/server.js
-proxy/login.js:proxy/login.js
+proxy/addon.py:proxy/addon.py
 base/claude/.claude.json:.data/claude/.claude.json:init
 base/claude/settings.json:.data/claude/settings.json:init

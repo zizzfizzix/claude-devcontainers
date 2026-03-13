@@ -28,6 +28,6 @@
     }
   },
   "remoteUser": "vscode",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+  "postStartCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/poststart.sh",
   "waitFor": "postStartCommand"
 }

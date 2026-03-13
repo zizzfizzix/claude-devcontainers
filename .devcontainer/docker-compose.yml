@@ -11,15 +11,16 @@ services:
       - NET_RAW
     volumes:
       - ..:/workspace:cached
-      - /workspace/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
+      - /workspace/.devcontainer/.data/proxy # anonymous volume shadows real credentials
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/node/.claude
+      - ./.data/certs:/proxy-certs:ro
     environment:
-      NODE_OPTIONS: "--max-old-space-size=4096"
+      NODE_OPTIONS: "--max-old-space-size=4096 --use-openssl-ca"
       CLAUDE_CONFIG_DIR: /home/node/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
-      ANTHROPIC_BASE_URL: "http://claude-proxy:3100"
-      ANTHROPIC_API_KEY: "proxy-handled" # replaced by the sidecar proxy
+      SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
+      REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
     depends_on:
       claude-proxy:
         condition: service_healthy
@@ -30,10 +31,8 @@ services:
       context: ../proxy
     volumes:
       - ./.data/proxy:/data
+      - ./.data/certs:/certs
     restart: unless-stopped
-    environment:
-      CREDENTIALS_FILE: /data/credentials.json
-      PORT: "3100"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3100/healthz"]
       interval: 10s

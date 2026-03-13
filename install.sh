@@ -34,7 +34,7 @@ PROJECT_NAME="${TARGET##*/}"
 WORKSPACE_FOLDER="/${PROJECT_NAME}"
 
 # Create the bind-mount data directories and keep them out of git.
-mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy"
+mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 
 # Fetch every file listed in the template's manifest.
 # Format: src:dest[:init]
@@ -64,27 +64,26 @@ if ! command -v docker &>/dev/null; then
   echo "Docker not found — skipping proxy setup."
   echo "To complete setup later, run:"
   echo "  docker compose -f ${DEST}/docker-compose.yml up -d --wait claude-proxy"
-  echo "  docker compose -f ${DEST}/docker-compose.yml exec claude-proxy node /app/login.js"
-  echo "Then open ${TARGET} in VS Code → Reopen in Container."
+  echo "Then open ${TARGET} in VS Code → Reopen in Container and run: claude /login"
   exit 0
 fi
 
-echo "Building credential proxy..."
+echo "Building proxy..."
 docker compose -f "${DEST}/docker-compose.yml" build claude-proxy
 
-echo "Starting credential proxy..."
+echo "Starting proxy..."
 docker compose -f "${DEST}/docker-compose.yml" up -d --wait claude-proxy
 
 HEALTHZ=$(docker compose -f "${DEST}/docker-compose.yml" exec claude-proxy \
   wget -qO- http://localhost:3100/healthz 2>/dev/null || echo '{}')
 
 if echo "$HEALTHZ" | grep -q '"credentialsLoaded":true'; then
-  echo "Credentials already loaded — skipping login."
+  echo "Credentials already loaded."
 else
-  echo ""
-  docker compose -f "${DEST}/docker-compose.yml" run --rm -p 1455:1455 claude-proxy node /app/login.js
+  echo "No credentials yet — you will be prompted to log in inside the devcontainer."
 fi
 
 echo ""
 echo "Open ${TARGET} in VS Code → Reopen in Container."
-echo "Credentials are stored in a Docker volume and will persist across rebuilds."
+echo "On first use, run: claude /login"
+echo "Credentials are stored in .devcontainer/.data/ and persist across rebuilds."

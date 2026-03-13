@@ -1,7 +1,5 @@
 FROM ghcr.io/mitmproxy/mitmproxy:latest
 
-RUN apt-get update && apt-get install -y --no-install-recommends iptables && rm -rf /var/lib/apt/lists/*
-
 COPY addon.py start.sh /app/
 
 RUN mkdir -p /data /certs && chmod +x /app/start.sh

@@ -1,18 +1,11 @@
 #!/bin/sh
-# Redirect incoming port 443 to mitmproxy's unprivileged listener so we don't
-# need CAP_NET_BIND_SERVICE.  Requires CAP_NET_ADMIN (set in docker-compose).
-iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 8443
-
-LISTEN_IP=$(python3 -c "
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.connect(('8.8.8.8', 80))
-print(s.getsockname()[0])
-")
+# Traffic arrives here because the devcontainer's /etc/hosts points Anthropic
+# hostnames at this container's IP — no DNAT or iptables needed.
+# NET_BIND_SERVICE capability (set in docker-compose) allows binding port 443.
 exec mitmdump \
   --mode transparent \
-  --listen-host "$LISTEN_IP" \
-  --listen-port 8443 \
+  --listen-host 0.0.0.0 \
+  --listen-port 443 \
   --set confdir=/data/mitmproxy \
   --set block_global=false \
   -s /app/addon.py

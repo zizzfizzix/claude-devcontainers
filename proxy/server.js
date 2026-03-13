@@ -107,6 +107,12 @@ function forwardUpstream(method, urlPath, inHeaders, body, token) {
   return new Promise((resolve, reject) => {
     const headers = { ...inHeaders, host: UPSTREAM, authorization: `Bearer ${token}` };
     delete headers['x-api-key']; // avoid ambiguity
+    // Merge in the beta flags required for OAuth token acceptance; preserve any
+    // flags Claude Code already sent (e.g. claude-code-20250219).
+    const existingBeta = headers['anthropic-beta'] || '';
+    const requiredFlags = ['claude-code-20250219', 'oauth-2025-04-20'];
+    const mergedBeta = [...new Set([...existingBeta.split(',').filter(Boolean), ...requiredFlags])].join(',');
+    headers['anthropic-beta'] = mergedBeta;
     if (body.length) headers['content-length'] = body.length;
 
     const req = https.request({ hostname: UPSTREAM, path: urlPath, method, headers }, res => {

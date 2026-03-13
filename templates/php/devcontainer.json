@@ -2,7 +2,7 @@
   "name": "PHP / WordPress Sandbox",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": "..",
+    "context": ".",
     "args": {
       "TZ": "${localEnv:TZ:Europe/London}",
       "NODE_VERSION": "24",

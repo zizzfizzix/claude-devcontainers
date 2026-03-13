@@ -114,7 +114,7 @@ class TokenSwapAddon:
         # Publish the mitmproxy CA cert to the shared volume so the
         # devcontainer postStartCommand can trust it.
         confdir = os.environ.get("MITMPROXY_CONFDIR", "/data/mitmproxy")
-        src = os.path.join(confdir, "mitmca.pem")
+        src = os.path.join(confdir, "mitmproxy-ca-cert.pem")
         if os.path.exists(src):
             os.makedirs(os.path.dirname(CERT_DEST), exist_ok=True)
             shutil.copy2(src, CERT_DEST)

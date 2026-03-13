@@ -33,7 +33,7 @@ services:
       - ./.data/certs:/certs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3100/healthz"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3100/healthz')"]
       interval: 10s
       timeout: 5s
       retries: 3

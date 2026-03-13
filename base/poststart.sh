@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Firewall rules
-sudo /usr/local/bin/init-firewall.sh
+# Firewall rules (only present in templates that include init-firewall.sh)
+if [ -f /usr/local/bin/init-firewall.sh ]; then
+  sudo /usr/local/bin/init-firewall.sh
+fi
 
 # Spoof Anthropic hostnames to the mitmproxy container
 PROXY_IP=$(getent hosts claude-proxy | awk '{print $1}')

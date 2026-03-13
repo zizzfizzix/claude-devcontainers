@@ -5,9 +5,6 @@ services:
       args:
         TZ: ${TZ:-Europe/London}
         GIT_DELTA_VERSION: "0.18.2"
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
     volumes:
       - ..:__WORKSPACE_FOLDER__:cached
       - __WORKSPACE_FOLDER__/.devcontainer/.data/proxy # anonymous volume shadows real credentials

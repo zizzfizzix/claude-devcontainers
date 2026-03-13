@@ -72,10 +72,7 @@ alias claude="claude --dangerously-skip-permissions"\n' \
 # Install Claude Code
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Firewall script — COPY path is relative to the Docker build context (repo root).
-# When deployed via install.sh the script is copied next to this Dockerfile and
-# the COPY line is patched to: COPY init-firewall.sh /usr/local/bin/init-firewall.sh
-COPY base/init-firewall.sh /usr/local/bin/init-firewall.sh
+COPY init-firewall.sh /usr/local/bin/init-firewall.sh
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh \
   && echo "vscode ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/vscode-firewall \

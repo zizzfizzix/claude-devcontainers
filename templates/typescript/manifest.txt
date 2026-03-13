@@ -1,0 +1,7 @@
+templates/typescript/Dockerfile:Dockerfile
+templates/typescript/devcontainer.json:devcontainer.json
+templates/typescript/docker-compose.yml:docker-compose.yml
+base/init-firewall.sh:init-firewall.sh
+proxy/Dockerfile:proxy/Dockerfile
+proxy/server.js:proxy/server.js
+proxy/login.js:proxy/login.js

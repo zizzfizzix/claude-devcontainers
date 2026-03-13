@@ -1,0 +1,6 @@
+templates/research/Dockerfile:Dockerfile
+templates/research/devcontainer.json:devcontainer.json
+templates/research/docker-compose.yml:docker-compose.yml
+proxy/Dockerfile:proxy/Dockerfile
+proxy/server.js:proxy/server.js
+proxy/login.js:proxy/login.js

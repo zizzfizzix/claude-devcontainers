@@ -1,0 +1,7 @@
+templates/php/Dockerfile:Dockerfile
+templates/php/devcontainer.json:devcontainer.json
+templates/php/docker-compose.yml:docker-compose.yml
+base/init-firewall.sh:init-firewall.sh
+proxy/Dockerfile:proxy/Dockerfile
+proxy/server.js:proxy/server.js
+proxy/login.js:proxy/login.js

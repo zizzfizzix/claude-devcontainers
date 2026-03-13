@@ -30,7 +30,8 @@ esac
 echo "Installing '${TEMPLATE}' devcontainer into ${DEST}..."
 mkdir -p "$DEST"
 
-WORKSPACE_FOLDER="/${TARGET##*/}"
+PROJECT_NAME="${TARGET##*/}"
+WORKSPACE_FOLDER="/${PROJECT_NAME}"
 
 # Create the bind-mount data directories and keep them out of git.
 mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy"
@@ -47,7 +48,7 @@ while IFS=: read -r src dest flag; do
   [[ "$flag" == "init" && -f "$outfile" ]] && continue
   mkdir -p "$(dirname "$outfile")"
   curl -fsSL "${REPO}/${src}" \
-    | sed "s|__WORKSPACE_FOLDER__|${WORKSPACE_FOLDER}|g" \
+    | sed "s|__PROJECT_NAME__|${PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${WORKSPACE_FOLDER}|g" \
     > "$outfile"
 done <<< "$MANIFEST"
 

@@ -1,5 +1,5 @@
 {
-  "name": "TypeScript Sandbox",
+  "name": "__PROJECT_NAME__",
   "dockerComposeFile": "docker-compose.yml",
   "service": "devcontainer",
   "workspaceFolder": "__WORKSPACE_FOLDER__",

@@ -5,5 +5,6 @@ base/init-firewall.sh:init-firewall.sh
 base/poststart.sh:poststart.sh
 proxy/Dockerfile:proxy/Dockerfile
 proxy/addon.py:proxy/addon.py
+proxy/start.sh:proxy/start.sh
 base/claude/.claude.json:.data/claude/.claude.json:init
 base/claude/settings.json:.data/claude/settings.json:init

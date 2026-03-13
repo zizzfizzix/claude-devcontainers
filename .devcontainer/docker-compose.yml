@@ -11,7 +11,7 @@ services:
       - NET_RAW
     volumes:
       - ..:/workspace:cached
-      - /workspace/.devcontainer/.data/proxy  # anonymous volume hides proxy credentials inside the container
+      - /workspace/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/node/.claude
     environment:
@@ -19,7 +19,7 @@ services:
       CLAUDE_CONFIG_DIR: /home/node/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       ANTHROPIC_BASE_URL: "http://claude-proxy:3100"
-      ANTHROPIC_API_KEY: "proxy-handled"
+      ANTHROPIC_API_KEY: "proxy-handled" # replaced by the sidecar proxy
     depends_on:
       claude-proxy:
         condition: service_healthy

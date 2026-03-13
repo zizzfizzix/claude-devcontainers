@@ -7,12 +7,13 @@ services:
         GIT_DELTA_VERSION: "0.18.2"
     volumes:
       - ..:/workspace:cached
-      - /workspace/.devcontainer/.data/proxy  # anonymous volume hides proxy credentials inside the container
+      - /workspace/.devcontainer/.data/proxy # anonymous volume hides proxy credentials inside the container
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/vscode/.claude
     environment:
       CLAUDE_CONFIG_DIR: /home/vscode/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
+      ANTHROPIC_API_KEY: "proxy-handled" # replaced by the sidecar proxy
       ANTHROPIC_BASE_URL: "http://claude-proxy:3100"
     depends_on:
       claude-proxy:

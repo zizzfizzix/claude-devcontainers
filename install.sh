@@ -5,7 +5,7 @@
 #   curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash -s -- typescript
 #
 # Local usage (from a clone):
-#   ./install.sh [typescript|php] [target-directory]
+#   ./install.sh [typescript|php|research] [target-directory]
 #
 # target-directory defaults to the current directory.
 # Set CLAUDE_DEVCONTAINERS_REPO to override the raw-file base URL.
@@ -18,9 +18,9 @@ REPO="${CLAUDE_DEVCONTAINERS_REPO:-https://raw.githubusercontent.com/zizzfizzix/
 DEST="${TARGET}/.devcontainer"
 
 case "$TEMPLATE" in
-  typescript|php) ;;
+  typescript|php|research) ;;
   *)
-    echo "ERROR: unknown template '${TEMPLATE}'. Available: typescript, php" >&2
+    echo "ERROR: unknown template '${TEMPLATE}'. Available: typescript, php, research" >&2
     exit 1
     ;;
 esac

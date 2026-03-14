@@ -27,6 +27,6 @@
     }
   },
   "remoteUser": "node",
-  "postStartCommand": "bash /workspace/.devcontainer/poststart.sh",
+  "postStartCommand": "bash /workspace/base/poststart.sh",
   "waitFor": "postStartCommand"
 }

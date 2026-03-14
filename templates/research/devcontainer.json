@@ -31,6 +31,7 @@
         "[markdown]": {
           "editor.defaultFormatter": "yzhang.markdown-all-in-one"
         },
+        "task.allowAutomaticTasks": "on",
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "bash": { "path": "bash", "icon": "terminal-bash" },

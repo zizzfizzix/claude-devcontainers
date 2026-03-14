@@ -14,15 +14,13 @@ wget -qO "$TMP" "https://github.com/dandavison/delta/releases/download/${GIT_DEL
 sudo dpkg -i "$TMP"
 rm "$TMP"
 
-# Shell customisations (idempotent — fzf feature may or may not wire these up)
-ZSHRC="${HOME}/.zshrc"
-grep -qF 'HISTFILE='        "$ZSHRC" 2>/dev/null || printf '\nexport HISTFILE=/commandhistory/.bash_history\nexport SAVEHIST=10000\nsetopt INC_APPEND_HISTORY\n' >> "$ZSHRC"
-grep -qF 'key-bindings.zsh' "$ZSHRC" 2>/dev/null || echo '[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh' >> "$ZSHRC"
-grep -qF 'completion.zsh'   "$ZSHRC" 2>/dev/null || echo '[ -f /usr/share/doc/fzf/examples/completion.zsh ]    && source /usr/share/doc/fzf/examples/completion.zsh'    >> "$ZSHRC"
-grep -qF 'alias claude='    "$ZSHRC" 2>/dev/null || echo 'alias claude="claude --dangerously-skip-permissions"' >> "$ZSHRC"
+DEVCONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Install shell config and claude tools as zsh profile scripts
+sudo install -m 644 "$DEVCONTAINER_DIR/shell-config.zsh" /etc/profile.d/shell-config.zsh
+sudo install -m 644 "$DEVCONTAINER_DIR/claude-wt.zsh"    /etc/profile.d/claude-wt.zsh
 
 # Set up init-firewall.sh if this template includes it
-DEVCONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$DEVCONTAINER_DIR/init-firewall.sh" ]]; then
   sudo install -m 755 "$DEVCONTAINER_DIR/init-firewall.sh" /usr/local/bin/init-firewall.sh
   ME="$(whoami)"

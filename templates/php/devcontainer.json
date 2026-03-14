@@ -34,6 +34,7 @@
         "[php]": {
           "editor.defaultFormatter": "bmewburn.vscode-intelephense-client"
         },
+        "task.allowAutomaticTasks": "on",
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "bash": { "path": "bash", "icon": "terminal-bash" },

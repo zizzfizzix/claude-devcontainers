@@ -1,5 +1,7 @@
 templates/php/devcontainer.json:devcontainer.json
 base/postcreate.sh:postcreate.sh
+base/shell-config.zsh:shell-config.zsh
+base/claude-wt.zsh:claude-wt.zsh
 templates/php/postcreate-php.sh:postcreate-php.sh
 templates/php/docker-compose.yml:docker-compose.yml
 base/init-firewall.sh:init-firewall.sh

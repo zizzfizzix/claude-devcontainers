@@ -30,6 +30,7 @@
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
         },
+        "task.allowAutomaticTasks": "on",
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "bash": { "path": "bash", "icon": "terminal-bash" },
@@ -39,6 +40,7 @@
     }
   },
   "remoteUser": "vscode",
+  "postCreateCommand": "bash /workspace/base/postcreate.sh",
   "postStartCommand": "bash /workspace/base/poststart.sh",
   "waitFor": "postStartCommand"
 }

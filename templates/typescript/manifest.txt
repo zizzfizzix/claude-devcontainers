@@ -1,5 +1,7 @@
 templates/typescript/devcontainer.json:devcontainer.json
 base/postcreate.sh:postcreate.sh
+base/shell-config.zsh:shell-config.zsh
+base/claude-wt.zsh:claude-wt.zsh
 templates/typescript/docker-compose.yml:docker-compose.yml
 base/init-firewall.sh:init-firewall.sh
 base/poststart.sh:poststart.sh

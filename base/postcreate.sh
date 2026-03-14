@@ -16,9 +16,14 @@ rm "$TMP"
 
 DEVCONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Install shell config and claude tools as zsh profile scripts
-sudo install -m 644 "$DEVCONTAINER_DIR/shell-config.zsh" /etc/profile.d/shell-config.zsh
-sudo install -m 644 "$DEVCONTAINER_DIR/claude-wt.zsh"    /etc/profile.d/claude-wt.zsh
+# Install shell config and claude tools into zsh's drop-in directory
+sudo mkdir -p /etc/zsh/zshrc.d
+sudo install -m 644 "$DEVCONTAINER_DIR/shell-config.zsh" /etc/zsh/zshrc.d/shell-config.zsh
+sudo install -m 644 "$DEVCONTAINER_DIR/claude-wt.zsh"    /etc/zsh/zshrc.d/claude-wt.zsh
+
+# Wire up the drop-in directory in /etc/zsh/zshrc if not already done
+grep -qF 'zshrc.d' /etc/zsh/zshrc 2>/dev/null || \
+  echo 'for f in /etc/zsh/zshrc.d/*.zsh; do source "$f"; done' | sudo tee -a /etc/zsh/zshrc > /dev/null
 
 # Set up init-firewall.sh if this template includes it
 if [[ -f "$DEVCONTAINER_DIR/init-firewall.sh" ]]; then

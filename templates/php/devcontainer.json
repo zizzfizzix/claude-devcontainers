@@ -1,5 +1,20 @@
 {
   "name": "__PROJECT_NAME__",
+  "features": {
+    "ghcr.io/stu-bell/devcontainer-features/claude-code:0": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/devcontainers/features/php:1": { "version": "8.2" },
+    "ghcr.io/devcontainers-extra/features/composer:1": {},
+    "ghcr.io/devcontainers-extra/features/fzf:1": {},
+    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+      "packages": "aggregate,dnsutils,iptables,ipset,iproute2,php8.2-bcmath,php8.2-curl,php8.2-gd,php8.2-intl,php8.2-mbstring,php8.2-mysql,php8.2-xml,php8.2-zip"
+    }
+  },
+  "forwardPorts": [8081],
+  "portsAttributes": {
+    "8081": { "label": "mitmweb UI", "protocol": "http" }
+  },
+  "postCreateCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/postcreate.sh && bash __WORKSPACE_FOLDER__/.devcontainer/postcreate-php.sh",
   "dockerComposeFile": "docker-compose.yml",
   "service": "devcontainer",
   "workspaceFolder": "__WORKSPACE_FOLDER__",

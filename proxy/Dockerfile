@@ -6,7 +6,7 @@ COPY addon.py start.sh /app/
 
 RUN mkdir -p /data /certs && chmod +x /app/start.sh
 
-EXPOSE 443 3100
+EXPOSE 443 3100 8081
 
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:3100/healthz')" || exit 1

@@ -1,5 +1,5 @@
-templates/research/Dockerfile:Dockerfile
 templates/research/devcontainer.json:devcontainer.json
+base/postcreate.sh:postcreate.sh
 templates/research/docker-compose.yml:docker-compose.yml
 base/poststart.sh:poststart.sh
 proxy/Dockerfile:proxy/Dockerfile

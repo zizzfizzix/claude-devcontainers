@@ -1,5 +1,6 @@
-templates/php/Dockerfile:Dockerfile
 templates/php/devcontainer.json:devcontainer.json
+base/postcreate.sh:postcreate.sh
+templates/php/postcreate-php.sh:postcreate-php.sh
 templates/php/docker-compose.yml:docker-compose.yml
 base/init-firewall.sh:init-firewall.sh
 base/poststart.sh:poststart.sh

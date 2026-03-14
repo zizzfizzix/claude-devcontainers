@@ -1,10 +1,6 @@
 services:
   devcontainer:
-    build:
-      context: .
-      args:
-        TZ: ${TZ:-Europe/London}
-        GIT_DELTA_VERSION: "0.18.2"
+    image: mcr.microsoft.com/devcontainers/base:debian
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -14,12 +10,13 @@ services:
       - ..:__WORKSPACE_FOLDER__:cached
       - __WORKSPACE_FOLDER__/.devcontainer/.data/proxy # anonymous volume shadows real credentials
       - ./.data/history:/commandhistory
-      - ./.data/claude:/home/node/.claude
+      - ./.data/claude:/home/vscode/.claude
       - ./.data/certs:/proxy-certs:ro
     environment:
+      TZ: ${TZ:-Europe/London}
       NODE_OPTIONS: "--max-old-space-size=4096"
       NODE_EXTRA_CA_CERTS: "/proxy-certs/mitmca.pem"
-      CLAUDE_CONFIG_DIR: /home/node/.claude
+      CLAUDE_CONFIG_DIR: /home/vscode/.claude
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
@@ -44,3 +41,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  socat:
+    image: alpine/socat
+    network_mode: "service:devcontainer"
+    depends_on:
+      claude-proxy:
+        condition: service_healthy
+    command: TCP-LISTEN:8081,fork,reuseaddr TCP:claude-proxy:8081
+    restart: unless-stopped

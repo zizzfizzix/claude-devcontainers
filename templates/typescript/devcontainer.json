@@ -1,5 +1,18 @@
 {
   "name": "__PROJECT_NAME__",
+  "features": {
+    "ghcr.io/stu-bell/devcontainer-features/claude-code:0": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/devcontainers-extra/features/fzf:1": {},
+    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+      "packages": "aggregate,dnsutils,iptables,ipset,iproute2"
+    }
+  },
+  "forwardPorts": [8081],
+  "portsAttributes": {
+    "8081": { "label": "mitmweb UI", "protocol": "http" }
+  },
+  "postCreateCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/postcreate.sh",
   "dockerComposeFile": "docker-compose.yml",
   "service": "devcontainer",
   "workspaceFolder": "__WORKSPACE_FOLDER__",
@@ -26,7 +39,7 @@
       }
     }
   },
-  "remoteUser": "node",
+  "remoteUser": "vscode",
   "postStartCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/poststart.sh",
   "waitFor": "postStartCommand"
 }

@@ -1,5 +1,5 @@
-templates/typescript/Dockerfile:Dockerfile
 templates/typescript/devcontainer.json:devcontainer.json
+base/postcreate.sh:postcreate.sh
 templates/typescript/docker-compose.yml:docker-compose.yml
 base/init-firewall.sh:init-firewall.sh
 base/poststart.sh:poststart.sh

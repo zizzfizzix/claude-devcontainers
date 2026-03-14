@@ -1,5 +1,17 @@
 {
   "name": "Claude Code Devcontainers",
+  "features": {
+    "ghcr.io/stu-bell/devcontainer-features/claude-code:0": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/devcontainers-extra/features/fzf:1": {},
+    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+      "packages": "aggregate,dnsutils,iptables,ipset,iproute2"
+    }
+  },
+  "forwardPorts": [8081],
+  "portsAttributes": {
+    "8081": { "label": "mitmweb UI", "protocol": "http" }
+  },
   "dockerComposeFile": "docker-compose.yml",
   "service": "devcontainer",
   "workspaceFolder": "/workspace",
@@ -21,12 +33,12 @@
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "bash": { "path": "bash", "icon": "terminal-bash" },
-          "zsh":  { "path": "zsh" }
+          "zsh": { "path": "zsh" }
         }
       }
     }
   },
-  "remoteUser": "node",
+  "remoteUser": "vscode",
   "postStartCommand": "bash /workspace/base/poststart.sh",
   "waitFor": "postStartCommand"
 }

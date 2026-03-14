@@ -12,4 +12,5 @@ exec mitmdump \
   --listen-port 8443 \
   --set confdir=/data/mitmproxy \
   --set block_global=false \
+  --set connection_strategy=lazy \
   -s /app/addon.py

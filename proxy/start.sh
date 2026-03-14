@@ -6,15 +6,19 @@
 /usr/sbin/iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 8443
 
 export PYTHONUNBUFFERED=1
-exec mitmweb \
-  --mode transparent \
-  --listen-host 0.0.0.0 \
-  --listen-port 8443 \
-  --web-host 0.0.0.0 \
-  --web-port 8081 \
-  --set confdir=/data/mitmproxy \
-  --set block_global=false \
-  --set connection_strategy=lazy \
-  # see: https://github.com/mitmproxy/mitmproxy/issues/7551#issuecomment-2781367454
-  --set web_password='$argon2i$v=19$m=8,t=1,p=1$YWFhYWFhYWE$nXD9kg' \
+
+MITM_ARGS=(
+  --mode transparent
+  --listen-host 0.0.0.0
+  --listen-port 8443
+  --web-host 0.0.0.0
+  --web-port 8081
+  --set confdir=/data/mitmproxy
+  --set block_global=false
+  --set connection_strategy=lazy
+  # See: https://github.com/mitmproxy/mitmproxy/issues/7551#issuecomment-2781367454
+  --set web_password='$argon2i$v=19$m=8,t=1,p=1$YWFhYWFhYWE$nXD9kg'
   -s /app/addon.py
+)
+
+exec mitmweb "${MITM_ARGS[@]}"

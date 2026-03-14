@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Redirect incoming port 443 → 8443 so mitmproxy binds an unprivileged port.
 # The failed TCP attempt to proxy:443 (nothing listening there) keeps the server
 # connection in a non-open state, which lets tls_clienthello override the address.

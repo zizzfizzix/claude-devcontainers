@@ -15,4 +15,5 @@ exec mitmweb \
   --set confdir=/data/mitmproxy \
   --set block_global=false \
   --set connection_strategy=lazy \
+  --set web_password='$argon2i$v=19$m=8,t=1,p=1$YWFhYWFhYWE$nXD9kg' \
   -s /app/addon.py

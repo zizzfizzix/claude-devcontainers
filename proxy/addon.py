@@ -17,7 +17,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
 
-from mitmproxy import http
+from mitmproxy import ctx, http
 
 log = logging.getLogger("addon")
 
@@ -28,6 +28,12 @@ DUMMY_ACCESS_TOKEN = "dummy-access-token"
 DUMMY_REFRESH_TOKEN = "dummy-refresh-token"
 
 OAUTH_HOST = "platform.claude.com"
+
+
+def _mask(token: str) -> str:
+    if len(token) <= 12:
+        return "***"
+    return f"{token[:6]}...{token[-6:]}"
 OAUTH_PATH = "/v1/oauth/token"
 
 
@@ -145,6 +151,9 @@ class TokenSwapAddon:
         auth = flow.request.headers.get("authorization", "")
         if auth == f"Bearer {DUMMY_ACCESS_TOKEN}" and store.access_token:
             flow.request.headers["authorization"] = f"Bearer {store.access_token}"
+            msg = f"[token-swap] access-token substituted for request to {flow.request.pretty_host}: {DUMMY_ACCESS_TOKEN} → {_mask(store.access_token)}"
+            ctx.log.info(msg)
+            flow.comment = (flow.comment + " | " if flow.comment else "") + f"access-token substituted ({DUMMY_ACCESS_TOKEN} → {_mask(store.access_token)})"
 
         # Swap dummy refresh_token → real refresh token on OAuth token requests
         if (
@@ -183,6 +192,8 @@ class TokenSwapAddon:
                 if body.get("refresh_token") == DUMMY_REFRESH_TOKEN:
                     body["refresh_token"] = real_refresh
                     flow.request.content = json.dumps(body).encode()
+                    ctx.log.info(f"[token-swap] refresh-token substituted in OAuth request body: {DUMMY_REFRESH_TOKEN} → {_mask(real_refresh)} (JSON)")
+                    flow.comment = (flow.comment + " | " if flow.comment else "") + f"refresh-token substituted ({DUMMY_REFRESH_TOKEN} → {_mask(real_refresh)}, JSON)"
             except Exception:
                 pass
         elif "application/x-www-form-urlencoded" in ct:
@@ -191,6 +202,8 @@ class TokenSwapAddon:
             if params.get("refresh_token") == [DUMMY_REFRESH_TOKEN]:
                 params["refresh_token"] = [real_refresh]
                 flow.request.content = urlencode(params, doseq=True).encode()
+                ctx.log.info(f"[token-swap] refresh-token substituted in OAuth request body: {DUMMY_REFRESH_TOKEN} → {_mask(real_refresh)} (form-encoded)")
+                flow.comment = (flow.comment + " | " if flow.comment else "") + f"refresh-token substituted ({DUMMY_REFRESH_TOKEN} → {_mask(real_refresh)}, form)"
 
     def _handle_oauth_response(self, flow: http.HTTPFlow) -> None:
         try:
@@ -210,12 +223,23 @@ class TokenSwapAddon:
             store.save(new_creds)
 
         # Rewrite tokens to dummies before returning to Claude Code
+        changed = []
         if real_access:
             body["access_token"] = DUMMY_ACCESS_TOKEN
+            changed.append("access_token")
         if real_refresh:
             body["refresh_token"] = DUMMY_REFRESH_TOKEN
+            changed.append("refresh_token")
 
         flow.response.content = json.dumps(body).encode()
+        if changed:
+            parts = []
+            if real_access:
+                parts.append(f"access_token {_mask(real_access)} → {DUMMY_ACCESS_TOKEN}")
+            if real_refresh:
+                parts.append(f"refresh_token {_mask(real_refresh)} → {DUMMY_REFRESH_TOKEN}")
+            ctx.log.info(f"[token-swap] OAuth response: captured + replaced — {'; '.join(parts)}")
+            flow.comment = (flow.comment + " | " if flow.comment else "") + f"captured+scrubbed: {'; '.join(parts)}"
 
     def _scrub_response(self, flow: http.HTTPFlow) -> None:
         real_access = store.access_token
@@ -224,15 +248,17 @@ class TokenSwapAddon:
             return
         try:
             text = flow.response.content.decode("utf-8", errors="replace")
-            changed = False
+            scrubbed = []
             if real_access and real_access in text:
                 text = text.replace(real_access, DUMMY_ACCESS_TOKEN)
-                changed = True
+                scrubbed.append(f"access_token {_mask(real_access)}")
             if real_refresh and real_refresh in text:
                 text = text.replace(real_refresh, DUMMY_REFRESH_TOKEN)
-                changed = True
-            if changed:
+                scrubbed.append(f"refresh_token {_mask(real_refresh)}")
+            if scrubbed:
                 flow.response.content = text.encode("utf-8")
+                ctx.log.info(f"[token-swap] scrubbed from response body ({flow.request.pretty_url}): {', '.join(scrubbed)}")
+                flow.comment = (flow.comment + " | " if flow.comment else "") + f"scrubbed: {', '.join(scrubbed)}"
         except Exception:
             pass
 

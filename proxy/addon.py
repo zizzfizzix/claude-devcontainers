@@ -75,19 +75,20 @@ def _mask(token: str) -> str:
 class CredentialsStore:
     def __init__(self, path: str) -> None:
         self.path = path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._creds: Optional[dict] = None
         self._load()
 
     def _load(self) -> None:
-        if os.path.exists(self.path):
-            try:
-                with open(self.path) as f:
-                    self._creds = json.load(f)
-                log.info("Loaded credentials from %s", self.path)
-            except (json.JSONDecodeError, OSError, ValueError) as e:
-                log.warning("Failed to load credentials: %s", e)
-                self._creds = None
+        with self._lock:
+            if os.path.exists(self.path):
+                try:
+                    with open(self.path) as f:
+                        self._creds = json.load(f)
+                    log.info("Loaded credentials from %s", self.path)
+                except (json.JSONDecodeError, OSError, ValueError) as e:
+                    log.warning("Failed to load credentials: %s", e)
+                    self._creds = None
 
     def save(self, creds: dict) -> None:
         with self._lock:
@@ -109,6 +110,12 @@ class CredentialsStore:
     def refresh_token(self) -> Optional[str]:
         with self._lock:
             return (self._creds or {}).get("refresh_token")
+
+    def tokens(self) -> tuple[Optional[str], Optional[str]]:
+        """Return (access_token, refresh_token) as a single atomic read."""
+        with self._lock:
+            creds = self._creds or {}
+            return creds.get("access_token"), creds.get("refresh_token")
 
     @property
     def loaded(self) -> bool:
@@ -318,8 +325,7 @@ class TokenSwapAddon:
             flow.comment = (flow.comment + " | " if flow.comment else "") + f"captured+scrubbed: {'; '.join(parts)}"
 
     def _scrub_response(self, flow: http.HTTPFlow) -> None:
-        real_access = store.access_token
-        real_refresh = store.refresh_token
+        real_access, real_refresh = store.tokens()
         if not real_access and not real_refresh:
             return
 

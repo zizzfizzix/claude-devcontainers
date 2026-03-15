@@ -57,6 +57,10 @@ iptables -t mangle -F
 iptables -t mangle -X
 ipset destroy allowed-domains 2>/dev/null || true
 
+# Allow established connections BEFORE setting DROP policy — eliminates the gap
+# where in-flight return packets would be dropped.
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 # Allow outbound DNS
 iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
 iptables -A INPUT -p udp --sport 53 -j ACCEPT
@@ -95,9 +99,13 @@ if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
 fi
 
 echo "Processing GitHub IPs..."
-gh_ips=$(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q 2>/dev/null || true)
+if ! gh_raw=$(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]'); then
+    echo "ERROR: Failed to extract GitHub IP ranges (jq failed)"
+    exit 1
+fi
+gh_ips=$(echo "$gh_raw" | aggregate -q 2>/dev/null || true)
 if [ -z "$gh_ips" ]; then
-    echo "ERROR: Failed to aggregate GitHub IP ranges"
+    echo "ERROR: Failed to aggregate GitHub IP ranges (aggregate produced empty output)"
     exit 1
 fi
 while read -r cidr; do
@@ -177,32 +185,29 @@ done
 # ---------------------------------------------------------------------------
 # Remaining filter rules (depend on ipset and host network detection)
 # ---------------------------------------------------------------------------
-HOST_IP=$(ip route | grep default | cut -d" " -f3)
-if [ -z "$HOST_IP" ]; then
-    echo "ERROR: Failed to detect host IP"
+# Take only the first default route to avoid multi-line HOST_IP from multiple NICs.
+HOST_IP=$(ip route show default | awk 'NR==1 {print $3}')
+if [ -z "$HOST_IP" ] || ! _valid_ip "$HOST_IP"; then
+    echo "ERROR: Failed to detect a valid host IP (got: ${HOST_IP:-empty})"
     exit 1
 fi
 
-HOST_NETWORK=$(echo "$HOST_IP" | sed "s/\.[0-9]*$/.0\/24/")
-echo "Host network detected as: $HOST_NETWORK"
+echo "Host gateway detected as: $HOST_IP"
 
-iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
-iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
-
-# Set default policies to DROP
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
-iptables -P OUTPUT DROP
-
-# Allow established connections for already approved traffic
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -s "$HOST_IP" -j ACCEPT
+iptables -A OUTPUT -d "$HOST_IP" -j ACCEPT
 
 # Allow only specific outbound traffic to allowed domains
 iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
 
 # Explicitly REJECT all other outbound traffic for immediate feedback
 iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
+
+# Set default policies to DROP — all ACCEPT rules are now in place, so there
+# is no gap where legitimate traffic would be blocked.
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT DROP
 
 echo "Firewall configuration complete"
 echo "Verifying firewall rules..."
@@ -247,6 +252,16 @@ fi
 #    Docker's internal DNS port — breaking name resolution for mitmproxy.
 # ---------------------------------------------------------------------------
 MITMPROXY_UID=$(id -u)
+
+# Remove any redirect/skip rules we inserted on a previous run so that a
+# container restart doesn't accumulate duplicate entries in Docker's nat chain.
+for handle in $(nft -a list chain ip nat OUTPUT 2>/dev/null \
+    | awk '/redirect to :8443|meta skuid [0-9]+ accept/ {
+        for (i=1; i<=NF; i++) if ($i == "handle") { print $(i+1); break }
+    }'); do
+    nft delete rule ip nat OUTPUT handle "$handle" 2>/dev/null || true
+done
+
 nft insert rule ip nat OUTPUT tcp dport { 80, 443 } redirect to :8443
 nft insert rule ip nat OUTPUT tcp dport { 80, 443 } meta skuid "$MITMPROXY_UID" accept
 

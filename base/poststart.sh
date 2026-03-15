@@ -7,11 +7,7 @@ grep -v '^::1[[:space:]]' /etc/hosts > "$HOSTS_TMP"
 sudo cp "$HOSTS_TMP" /etc/hosts
 rm -f "$HOSTS_TMP"
 
-# Trust the mitmproxy CA cert (system store + certifi bundle)
-sudo mkdir -p /usr/local/share/ca-certificates
-sudo cp /proxy-certs/mitmca.pem /usr/local/share/ca-certificates/claude-proxy-ca.crt
-sudo update-ca-certificates 2>&1 | tail -5
-
+# Trust the mitmproxy CA cert in the certifi bundle (for Python requests)
 CERTIFI_PATH=$(python3 -c "import certifi; print(certifi.where())" 2>/dev/null || true)
 if [[ -n "$CERTIFI_PATH" ]]; then
   # Only append if the cert isn't already present (guard against repeated poststart runs)

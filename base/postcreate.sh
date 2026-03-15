@@ -6,6 +6,11 @@ sudo mkdir -p /commandhistory
 sudo chown "$(id -u):$(id -g)" /commandhistory
 touch /commandhistory/.bash_history
 
+# Trust the mitmproxy CA cert so HTTPS requests in this script work
+sudo mkdir -p /usr/local/share/ca-certificates
+sudo cp /proxy-certs/mitmca.pem /usr/local/share/ca-certificates/claude-proxy-ca.crt
+sudo update-ca-certificates 2>&1 | tail -5
+
 # git-delta (no feature available)
 ARCH=$(dpkg --print-architecture)
 GIT_DELTA_VERSION="${GIT_DELTA_VERSION:-0.18.2}"

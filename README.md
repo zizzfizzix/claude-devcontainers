@@ -8,25 +8,35 @@ Baseline devcontainer configs for [Claude Code](https://claude.ai/code). Adds a 
 curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash -s -- typescript
 ```
 
-Replace `typescript` with `php` as needed. Then open the folder in VS Code → **Reopen in Container**.
+Replace `typescript` with `php` or `research` as needed. Then open the folder in VS Code → **Reopen in Container**.
 
-> `install.sh` downloads only the three files it needs — no clone required.
+> `install.sh` downloads only the files it needs — no clone required.
 
 ## Templates
 
-| Template     | Base image                                           | Extra tooling                                   |
-| ------------ | ---------------------------------------------------- | ----------------------------------------------- |
-| `typescript` | `mcr.microsoft.com/devcontainers/javascript-node:24` | Node 24, git-delta, Claude Code                 |
-| `php`        | `mcr.microsoft.com/devcontainers/php:8.2`            | PHP 8.2 + extensions, Composer, WP-CLI, Node 24 |
+| Template     | Base image                                        | Extra tooling                                    |
+| ------------ | ------------------------------------------------- | ------------------------------------------------ |
+| `typescript` | `mcr.microsoft.com/devcontainers/base:debian`     | Node 24, git-delta, Claude Code                  |
+| `php`        | `mcr.microsoft.com/devcontainers/base:debian`     | PHP 8.2 + extensions, Composer, WP-CLI, Node 24  |
+| `research`   | `mcr.microsoft.com/devcontainers/base:debian`     | Pandoc, ripgrep, Dendron, Markdown tools — firewall disabled (`UNRESTRICTED_NETWORK=true`) |
 
 All templates include:
 
 - Claude Code with `--dangerously-skip-permissions` aliased (safe inside the firewall-restricted container)
 - `iptables` firewall: allowlists only necessary outbound domains, drops everything else
+- Transparent HTTPS proxy (mitmproxy) with OAuth credential management
 - Persistent shell history and Claude config across container rebuilds
-   - git-delta, fzf, zsh
+- git-delta, fzf, zsh
 
- 
+## First use
+
+After the container starts, authenticate Claude Code:
+
+```bash
+claude /login
+```
+
+Credentials are persisted in `.devcontainer/.data/proxy/credentials.json` and survive container rebuilds.
 
 ## What gets installed
 
@@ -36,13 +46,21 @@ All templates include:
 │   ├── Dockerfile        # mitmproxy sidecar image
 │   ├── addon.py          # token swap + request inspection
 │   └── start.sh          # firewall setup + transparent proxy launch
-├── claude-wt.zsh
+├── claude-wt.zsh         # git worktree helper for multi-branch Claude sessions
 ├── devcontainer.json
 ├── docker-compose.yml
 ├── postcreate.sh
 ├── poststart.sh
 └── shell-config.zsh
 ```
+
+## How the proxy works
+
+The `claude-proxy` sidecar runs mitmproxy as a transparent HTTPS proxy alongside an `iptables`/`nftables` firewall. All outbound traffic from the dev container is redirected through it.
+
+- **Domain allowlist**: only requests to whitelisted domains (GitHub, npm, Anthropic, VS Code, etc.) are forwarded; all others get a 403.
+- **Credential management**: real OAuth tokens are captured from login responses, stored in `.devcontainer/.data/proxy/credentials.json`, and replaced with dummy tokens that are swapped back transparently on every outbound request. This prevents real tokens from appearing in Claude's context or logs.
+- **CA certificate**: the proxy CA is automatically trusted in the system store and Python's `certifi` bundle on container start.
 
 ## Extending the firewall allowlist
 
@@ -56,10 +74,24 @@ claude-proxy:
 
 The proxy resolves and allowlists them at container start.
 
+## Disabling the firewall
+
+To allow all outbound traffic (e.g. for initial setup or debugging):
+
+```yaml
+claude-proxy:
+  environment:
+    UNRESTRICTED_NETWORK: "true"
+```
+
+## Git worktree helper
+
+`claude-wt.zsh` provides a `claude-wt <branch>` function that creates a git worktree for `<branch>`, injects a one-shot VS Code task to launch Claude Code, and reopens VS Code into that worktree. Useful for running multiple Claude sessions on different branches simultaneously.
+
 ## Local usage (from a clone)
 
 ```bash
-./install.sh [typescript|php] [target-directory]
+./install.sh [typescript|php|research] [target-directory]
 ```
 
 `target-directory` defaults to the current directory.

@@ -1,9 +1,7 @@
 services:
   devcontainer:
     image: mcr.microsoft.com/devcontainers/base:debian
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    network_mode: "service:claude-proxy"
     volumes:
       - ..:/workspace:cached
       - /workspace/.devcontainer/.data/proxy # anonymous volume shadows real credentials
@@ -17,9 +15,6 @@ services:
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
-    depends_on:
-      claude-proxy:
-        condition: service_healthy
     command: sleep infinity
 
   claude-proxy:
@@ -37,12 +32,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-
-  socat:
-    image: alpine/socat
-    network_mode: "service:devcontainer"
-    depends_on:
-      claude-proxy:
-        condition: service_healthy
-    command: TCP-LISTEN:8081,fork,reuseaddr TCP:claude-proxy:8081
-    restart: unless-stopped

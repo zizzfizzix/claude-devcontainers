@@ -25,12 +25,3 @@ sudo install -m 644 "$DEVCONTAINER_DIR/claude-wt.zsh"    /etc/zsh/zshrc.d/claude
 # Wire up the drop-in directory in /etc/zsh/zshrc if not already done
 grep -qF 'zshrc.d' /etc/zsh/zshrc 2>/dev/null || \
   echo 'for f in /etc/zsh/zshrc.d/*.zsh; do source "$f"; done' | sudo tee -a /etc/zsh/zshrc > /dev/null
-
-# Set up init-firewall.sh if this template includes it
-if [[ -f "$DEVCONTAINER_DIR/init-firewall.sh" ]]; then
-  sudo install -m 755 "$DEVCONTAINER_DIR/init-firewall.sh" /usr/local/bin/init-firewall.sh
-  ME="$(whoami)"
-  printf '%s ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh\n' "$ME" \
-    | sudo tee "/etc/sudoers.d/$ME-firewall" > /dev/null
-  sudo chmod 440 "/etc/sudoers.d/$ME-firewall"
-fi

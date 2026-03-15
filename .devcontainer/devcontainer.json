@@ -3,10 +3,7 @@
   "features": {
     "ghcr.io/stu-bell/devcontainer-features/claude-code:0": {},
     "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
-    "ghcr.io/devcontainers-extra/features/fzf:1": {},
-    "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
-      "packages": "aggregate,dnsutils,iptables,ipset,iproute2"
-    }
+    "ghcr.io/devcontainers-extra/features/fzf:1": {}
   },
   "forwardPorts": [8081],
   "portsAttributes": {

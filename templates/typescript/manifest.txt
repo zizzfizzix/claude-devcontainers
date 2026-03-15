@@ -1,7 +1,6 @@
 base/claude/.claude.json:.data/claude/.claude.json:init
 base/claude/settings.json:.data/claude/settings.json:init
 base/claude-wt.zsh:claude-wt.zsh
-base/init-firewall.sh:init-firewall.sh
 base/postcreate.sh:postcreate.sh
 base/poststart.sh:poststart.sh
 base/shell-config.zsh:shell-config.zsh

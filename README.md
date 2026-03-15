@@ -12,8 +12,6 @@ Replace `typescript` with `php` as needed. Then open the folder in VS Code → *
 
 > `install.sh` downloads only the three files it needs — no clone required.
 
----
-
 ## Templates
 
 | Template     | Base image                                           | Extra tooling                                   |
@@ -26,34 +24,37 @@ All templates include:
 - Claude Code with `--dangerously-skip-permissions` aliased (safe inside the firewall-restricted container)
 - `iptables` firewall: allowlists only necessary outbound domains, drops everything else
 - Persistent shell history and Claude config across container rebuilds
-- git-delta, fzf, zsh
+   - git-delta, fzf, zsh
 
----
+ 
 
 ## What gets installed
 
 ```
 .devcontainer/
-  Dockerfile          ← from templates/<name>/Dockerfile
-  devcontainer.json   ← context: ".." (project root)
-  init-firewall.sh    ← always from base/init-firewall.sh
+├── proxy/
+│   ├── Dockerfile        # mitmproxy sidecar image
+│   ├── addon.py          # token swap + request inspection
+│   └── start.sh          # firewall setup + transparent proxy launch
+├── claude-wt.zsh
+├── devcontainer.json
+├── docker-compose.yml
+├── postcreate.sh
+├── poststart.sh
+└── shell-config.zsh
 ```
-
----
 
 ## Extending the firewall allowlist
 
-Add extra domains via `containerEnv` — no script fork needed:
+Add extra domains via the `claude-proxy` service environment — no script fork needed:
 
-```json
-"containerEnv": {
-  "EXTRA_ALLOWED_DOMAINS": "registry.example.com cdn.example.com"
-}
+```yaml
+claude-proxy:
+  environment:
+    EXTRA_ALLOWED_DOMAINS: "registry.example.com cdn.example.com"
 ```
 
-`init-firewall.sh` resolves and allows them at container start.
-
----
+The proxy resolves and allowlists them at container start.
 
 ## Local usage (from a clone)
 
@@ -63,32 +64,41 @@ Add extra domains via `containerEnv` — no script fork needed:
 
 `target-directory` defaults to the current directory.
 
----
-
 ## Repo layout
 
 ```
-base/
-  init-firewall.sh    ← the only truly shared file; all templates use this
-
-templates/
-  typescript/
-    Dockerfile        ← mcr javascript-node:24 + firewall tools + Claude Code
-    devcontainer.json
-  php/
-    Dockerfile        ← mcr php:8.2 + Node.js + WP-CLI
-    devcontainer.json
-
-.devcontainer/        ← this repo's own devcontainer
-  devcontainer.json   ← references ../templates/typescript/Dockerfile; no duplication
-
-install.sh
+├── base/
+│   ├── claude/
+│   │   └── settings.json
+│   ├── claude-wt.zsh
+│   ├── postcreate.sh     # shared post-create hook; installs shell config
+│   ├── poststart.sh      # shared post-start hook; trusts proxy CA cert
+│   └── shell-config.zsh
+├── proxy/
+│   ├── addon.py          # mitmproxy addon: token swap + request inspection
+│   ├── Dockerfile        # mitmproxy sidecar image + firewall tools
+│   └── start.sh          # firewall setup + transparent proxy launch
+├── templates/
+│   ├── php/
+│   │   ├── devcontainer.json
+│   │   ├── docker-compose.yml
+│   │   ├── manifest.txt        # files install.sh copies into a target repo
+│   │   └── postcreate-php.sh
+│   ├── research/
+│   │   ├── devcontainer.json
+│   │   ├── docker-compose.yml
+│   │   └── manifest.txt
+│   └── typescript/
+│       ├── devcontainer.json
+│       ├── docker-compose.yml
+│       └── manifest.txt
+├── .devcontainer/        # this repo's own devcontainer
+│   └── devcontainer.json
+└── install.sh
 ```
-
----
 
 ## Adding a new template
 
-1. Add `templates/<name>/Dockerfile` and `templates/<name>/devcontainer.json`
+1. Add `templates/<name>/devcontainer.json`, `docker-compose.yml`, and `manifest.txt`
 2. Add `<name>` to the `case` statement in `install.sh`
 3. Add a row to the table above

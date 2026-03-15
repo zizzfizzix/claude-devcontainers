@@ -25,6 +25,8 @@ services:
       context: ./proxy
     cap_add:
       - NET_ADMIN
+    environment:
+      UNRESTRICTED_NETWORK: "true"
     volumes:
       - ./.data/proxy:/data
       - ./.data/certs:/certs

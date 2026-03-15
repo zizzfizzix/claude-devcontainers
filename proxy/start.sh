@@ -75,154 +75,186 @@ iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT
 
-# Verify required tools are available
-for tool in aggregate dig jq curl ipset iptables nft; do
-    command -v "$tool" >/dev/null || { echo "ERROR: required tool '$tool' not found"; exit 1; }
-done
+if [ "${UNRESTRICTED_NETWORK:-false}" = "true" ]; then
+    # ---------------------------------------------------------------------------
+    # Unrestricted mode — no domain filtering, all outbound traffic allowed.
+    # Still allow host gateway explicitly and lock down INPUT/FORWARD.
+    # ---------------------------------------------------------------------------
+    echo "UNRESTRICTED_NETWORK=true: skipping domain filtering — all outbound traffic allowed"
 
-# ---------------------------------------------------------------------------
-# Build the allowed-domains ipset (IP allowlist for direct egress)
-# ---------------------------------------------------------------------------
-ipset create allowed-domains hash:net
+    for tool in iptables nft; do
+        command -v "$tool" >/dev/null || { echo "ERROR: required tool '$tool' not found"; exit 1; }
+    done
 
-# Fetch GitHub meta information and aggregate + add their IP ranges
-echo "Fetching GitHub IP ranges..."
-gh_ranges=$(curl -s https://api.github.com/meta)
-if [ -z "$gh_ranges" ]; then
-    echo "ERROR: Failed to fetch GitHub IP ranges"
-    exit 1
-fi
+    HOST_IP=$(ip route show default | awk 'NR==1 {print $3}')
+    if [ -n "$HOST_IP" ] && _valid_ip "$HOST_IP"; then
+        echo "Host gateway detected as: $HOST_IP"
+        iptables -A INPUT -s "$HOST_IP" -j ACCEPT
+        iptables -A OUTPUT -d "$HOST_IP" -j ACCEPT
+    fi
 
-if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
-    echo "ERROR: GitHub API response missing required fields"
-    exit 1
-fi
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP
+    # OUTPUT remains ACCEPT — no domain restrictions
 
-echo "Processing GitHub IPs..."
-if ! gh_raw=$(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]'); then
-    echo "ERROR: Failed to extract GitHub IP ranges (jq failed)"
-    exit 1
-fi
-gh_ips=$(echo "$gh_raw" | aggregate -q 2>/dev/null || true)
-if [ -z "$gh_ips" ]; then
-    echo "ERROR: Failed to aggregate GitHub IP ranges (aggregate produced empty output)"
-    exit 1
-fi
-while read -r cidr; do
-    if ! _valid_cidr "$cidr"; then
-        echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
+    echo "Firewall configuration complete (unrestricted)"
+else
+    # ---------------------------------------------------------------------------
+    # Restricted mode — domain allowlist enforced via ipset + mitmproxy.
+    # ---------------------------------------------------------------------------
+
+    # Verify required tools are available
+    for tool in aggregate dig jq curl ipset iptables nft; do
+        command -v "$tool" >/dev/null || { echo "ERROR: required tool '$tool' not found"; exit 1; }
+    done
+
+    # -------------------------------------------------------------------------
+    # Build the allowed-domains ipset (IP allowlist for direct egress)
+    # -------------------------------------------------------------------------
+    ipset create allowed-domains hash:net
+
+    # Fetch GitHub meta information and aggregate + add their IP ranges
+    echo "Fetching GitHub IP ranges..."
+    gh_ranges=$(curl -s https://api.github.com/meta)
+    if [ -z "$gh_ranges" ]; then
+        echo "ERROR: Failed to fetch GitHub IP ranges"
         exit 1
     fi
-    echo "Adding GitHub range $cidr"
-    ipset add --exist allowed-domains "$cidr"
-done <<< "$gh_ips"
 
-# ---------------------------------------------------------------------------
-# Resolve allowed domains in parallel
-# ---------------------------------------------------------------------------
-# NOTE: IPs are resolved once at container start and cached in ipset. If a
-# domain's IPs rotate (e.g. CDN), the allowlist becomes stale and connections
-# will be blocked until the container is restarted.
-
-domains=(
-    "github.com"
-    "json.schemastore.org"
-    "claude.com"
-    "platform.claude.com"
-    "storage.googleapis.com"
-    "claude.ai"
-    "registry.npmjs.org"
-    "api.anthropic.com"
-    "sentry.io"
-    "statsig.anthropic.com"
-    "statsig.com"
-    "marketplace.visualstudio.com"
-    "vscode.blob.core.windows.net"
-    "update.code.visualstudio.com"
-    "githubusercontent.com"
-    "objects.githubusercontent.com"
-    "release-assets.githubusercontent.com"
-    "raw.githubusercontent.com"
-)
-
-# Append extra domains from environment variable (space-separated)
-if [ -n "${EXTRA_ALLOWED_DOMAINS:-}" ]; then
-    IFS=' ' read -ra extra_domains <<< "$EXTRA_ALLOWED_DOMAINS"
-    domains+=("${extra_domains[@]}")
-fi
-
-tmpdir=$(mktemp -d)
-trap 'rm -rf "$tmpdir"' EXIT
-
-echo "Resolving ${#domains[@]} domains in parallel..."
-for i in "${!domains[@]}"; do
-    domain="${domains[$i]}"
-    (
-        dig +time=5 +tries=2 +noall +answer A "$domain" \
-            | awk '$4 == "A" {print $5}' \
-            > "${tmpdir}/${i}"
-    ) &
-done
-wait  # wait for all background DNS lookups
-
-for i in "${!domains[@]}"; do
-    domain="${domains[$i]}"
-    ips=$(cat "${tmpdir}/${i}")
-    if [ -z "$ips" ]; then
-        echo "WARNING: Failed to resolve $domain — skipping (domain will not be allowed)"
-        continue
+    if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
+        echo "ERROR: GitHub API response missing required fields"
+        exit 1
     fi
-    while read -r ip; do
-        if ! _valid_ip "$ip"; then
-            echo "ERROR: Invalid IP from DNS for $domain: $ip"
+
+    echo "Processing GitHub IPs..."
+    if ! gh_raw=$(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]'); then
+        echo "ERROR: Failed to extract GitHub IP ranges (jq failed)"
+        exit 1
+    fi
+    gh_ips=$(echo "$gh_raw" | aggregate -q 2>/dev/null || true)
+    if [ -z "$gh_ips" ]; then
+        echo "ERROR: Failed to aggregate GitHub IP ranges (aggregate produced empty output)"
+        exit 1
+    fi
+    while read -r cidr; do
+        if ! _valid_cidr "$cidr"; then
+            echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
             exit 1
         fi
-        echo "Adding $ip for $domain"
-        ipset add --exist allowed-domains "$ip"
-    done < <(echo "$ips")
-done
+        echo "Adding GitHub range $cidr"
+        ipset add --exist allowed-domains "$cidr"
+    done <<< "$gh_ips"
 
-# ---------------------------------------------------------------------------
-# Remaining filter rules (depend on ipset and host network detection)
-# ---------------------------------------------------------------------------
-# Take only the first default route to avoid multi-line HOST_IP from multiple NICs.
-HOST_IP=$(ip route show default | awk 'NR==1 {print $3}')
-if [ -z "$HOST_IP" ] || ! _valid_ip "$HOST_IP"; then
-    echo "ERROR: Failed to detect a valid host IP (got: ${HOST_IP:-empty})"
-    exit 1
-fi
+    # -------------------------------------------------------------------------
+    # Resolve allowed domains in parallel
+    # -------------------------------------------------------------------------
+    # NOTE: IPs are resolved once at container start and cached in ipset. If a
+    # domain's IPs rotate (e.g. CDN), the allowlist becomes stale and connections
+    # will be blocked until the container is restarted.
 
-echo "Host gateway detected as: $HOST_IP"
+    domains=(
+        "github.com"
+        "json.schemastore.org"
+        "claude.com"
+        "platform.claude.com"
+        "storage.googleapis.com"
+        "claude.ai"
+        "registry.npmjs.org"
+        "api.anthropic.com"
+        "sentry.io"
+        "statsig.anthropic.com"
+        "statsig.com"
+        "marketplace.visualstudio.com"
+        "vscode.blob.core.windows.net"
+        "update.code.visualstudio.com"
+        "githubusercontent.com"
+        "objects.githubusercontent.com"
+        "release-assets.githubusercontent.com"
+        "raw.githubusercontent.com"
+    )
 
-iptables -A INPUT -s "$HOST_IP" -j ACCEPT
-iptables -A OUTPUT -d "$HOST_IP" -j ACCEPT
+    # Append extra domains from environment variable (space-separated)
+    if [ -n "${EXTRA_ALLOWED_DOMAINS:-}" ]; then
+        IFS=' ' read -ra extra_domains <<< "$EXTRA_ALLOWED_DOMAINS"
+        domains+=("${extra_domains[@]}")
+    fi
 
-# Allow only specific outbound traffic to allowed domains
-iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
+    tmpdir=$(mktemp -d)
+    trap 'rm -rf "$tmpdir"' EXIT
 
-# Explicitly REJECT all other outbound traffic for immediate feedback
-iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
+    echo "Resolving ${#domains[@]} domains in parallel..."
+    for i in "${!domains[@]}"; do
+        domain="${domains[$i]}"
+        (
+            dig +time=5 +tries=2 +noall +answer A "$domain" \
+                | awk '$4 == "A" {print $5}' \
+                > "${tmpdir}/${i}"
+        ) &
+    done
+    wait  # wait for all background DNS lookups
 
-# Set default policies to DROP — all ACCEPT rules are now in place, so there
-# is no gap where legitimate traffic would be blocked.
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
-iptables -P OUTPUT DROP
+    for i in "${!domains[@]}"; do
+        domain="${domains[$i]}"
+        ips=$(cat "${tmpdir}/${i}")
+        if [ -z "$ips" ]; then
+            echo "WARNING: Failed to resolve $domain — skipping (domain will not be allowed)"
+            continue
+        fi
+        while read -r ip; do
+            if ! _valid_ip "$ip"; then
+                echo "ERROR: Invalid IP from DNS for $domain: $ip"
+                exit 1
+            fi
+            echo "Adding $ip for $domain"
+            ipset add --exist allowed-domains "$ip"
+        done < <(echo "$ips")
+    done
 
-echo "Firewall configuration complete"
-echo "Verifying firewall rules..."
-if curl --connect-timeout 5 https://example.com >/dev/null 2>&1; then
-    echo "ERROR: Firewall verification failed - was able to reach https://example.com"
-    exit 1
-else
-    echo "Firewall verification passed - unable to reach https://example.com as expected"
-fi
+    # -------------------------------------------------------------------------
+    # Remaining filter rules (depend on ipset and host network detection)
+    # -------------------------------------------------------------------------
+    # Take only the first default route to avoid multi-line HOST_IP from multiple NICs.
+    HOST_IP=$(ip route show default | awk 'NR==1 {print $3}')
+    if [ -z "$HOST_IP" ] || ! _valid_ip "$HOST_IP"; then
+        echo "ERROR: Failed to detect a valid host IP (got: ${HOST_IP:-empty})"
+        exit 1
+    fi
 
-if ! curl --connect-timeout 5 https://api.github.com/zen >/dev/null 2>&1; then
-    echo "ERROR: Firewall verification failed - unable to reach https://api.github.com"
-    exit 1
-else
-    echo "Firewall verification passed - able to reach https://api.github.com as expected"
+    echo "Host gateway detected as: $HOST_IP"
+
+    iptables -A INPUT -s "$HOST_IP" -j ACCEPT
+    iptables -A OUTPUT -d "$HOST_IP" -j ACCEPT
+
+    # Allow only specific outbound traffic to allowed domains
+    iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
+
+    # Explicitly REJECT all other outbound traffic for immediate feedback
+    iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
+
+    # Set default policies to DROP — all ACCEPT rules are now in place, so there
+    # is no gap where legitimate traffic would be blocked.
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP
+    iptables -P OUTPUT DROP
+
+    echo "Firewall configuration complete"
+    echo "Verifying firewall rules..."
+    if curl --connect-timeout 5 https://example.com >/dev/null 2>&1; then
+        echo "ERROR: Firewall verification failed - was able to reach https://example.com"
+        exit 1
+    else
+        echo "Firewall verification passed - unable to reach https://example.com as expected"
+    fi
+
+    if ! curl --connect-timeout 5 https://api.github.com/zen >/dev/null 2>&1; then
+        echo "ERROR: Firewall verification failed - unable to reach https://api.github.com"
+        exit 1
+    else
+        echo "Firewall verification passed - able to reach https://api.github.com as expected"
+    fi
+
+    # Pass the allowed domains to the addon for clear 403 errors
+    export ALLOWED_DOMAINS="${domains[*]}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -265,8 +297,6 @@ done
 nft insert rule ip nat OUTPUT tcp dport { 80, 443 } redirect to :8443
 nft insert rule ip nat OUTPUT tcp dport { 80, 443 } meta skuid "$MITMPROXY_UID" accept
 
-# Pass the allowed domains to the addon for clear 403 errors
-export ALLOWED_DOMAINS="${domains[*]}"
 export PYTHONUNBUFFERED=1
 
 MITM_ARGS=(

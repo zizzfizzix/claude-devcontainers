@@ -7,15 +7,27 @@
 # Local usage (from a clone):
 #   ./install.sh [typescript|php|research] [target-directory]
 #
+# Local mode (copy from a local checkout instead of fetching from GitHub):
+#   CLAUDE_DEVCONTAINERS_REPO=/path/to/local/checkout ./install.sh [typescript|php|research] [target-directory]
+#
 # target-directory defaults to the current directory.
-# Set CLAUDE_DEVCONTAINERS_REPO to override the raw-file base URL.
+# Set CLAUDE_DEVCONTAINERS_REPO to override the raw-file base URL or point to a local directory.
 
 set -euo pipefail
 
 TEMPLATE="${1:-typescript}"
-TARGET="${2:-$(pwd)}"
+TARGET="$(cd "${2:-.}" && pwd)"
 REPO="${CLAUDE_DEVCONTAINERS_REPO:-https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main}"
 DEST="${TARGET}/.devcontainer"
+
+# Detect local mode: REPO is a local path if it starts with /, ./, or ../
+if [[ "$REPO" == /* || "$REPO" == ./* || "$REPO" == ../* ]]; then
+  REPO="$(cd "$REPO" && pwd)"  # resolve to absolute path
+  LOCAL_MODE=true
+  [[ -d "$REPO" ]] || { echo "ERROR: local repo path '${REPO}' is not a directory" >&2; exit 1; }
+else
+  LOCAL_MODE=false
+fi
 
 case "$TEMPLATE" in
   typescript|php|research) ;;
@@ -46,7 +58,21 @@ mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 #   src   — path relative to repo root
 #   dest  — path relative to DEST
 #   init  — optional flag: skip if the destination file already exists
-MANIFEST=$(curl -fsSL "${REPO}/templates/${TEMPLATE}/manifest.txt")
+_fetch_file() {
+  local src="$1"
+  if [[ "$LOCAL_MODE" == true ]]; then
+    cat "${REPO}/${src}"
+  else
+    curl -fsSL "${REPO}/${src}"
+  fi
+}
+
+if [[ "$LOCAL_MODE" == true ]]; then
+  MANIFEST=$(cat "${REPO}/templates/${TEMPLATE}/manifest.txt")
+else
+  MANIFEST=$(curl -fsSL "${REPO}/templates/${TEMPLATE}/manifest.txt")
+fi
+
 while IFS=: read -r src dest flag; do
   [[ -z "$src" || "$src" == \#* ]] && continue
   if [[ -z "$dest" ]]; then
@@ -56,7 +82,7 @@ while IFS=: read -r src dest flag; do
   outfile="${DEST}/${dest}"
   [[ "$flag" == "init" && -f "$outfile" ]] && continue
   mkdir -p "$(dirname "$outfile")"
-  curl -fsSL "${REPO}/${src}" \
+  _fetch_file "$src" \
     | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g" \
     > "$outfile"
 done <<< "$MANIFEST"

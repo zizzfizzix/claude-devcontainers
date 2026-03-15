@@ -8,7 +8,9 @@ alias claude="command claude --dangerously-skip-permissions"
 # then reloads VS Code into the worktree.
 claude-wt() {
   local NAME="${1:-wt-$(date +%s)}"
-  local WT=".claude/worktrees/$NAME"
+  local GIT_ROOT
+  GIT_ROOT=$(git rev-parse --show-toplevel) || return 1
+  local WT="$GIT_ROOT/.claude/worktrees/$NAME"
 
   git worktree add "$WT" || return 1
   mkdir -p "$WT/.vscode"

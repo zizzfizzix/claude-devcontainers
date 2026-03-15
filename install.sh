@@ -82,9 +82,16 @@ while IFS=: read -r src dest flag; do
   outfile="${DEST}/${dest}"
   [[ "$flag" == "init" && -f "$outfile" ]] && continue
   mkdir -p "$(dirname "$outfile")"
-  _fetch_file "$src" \
+  local TMP
+  TMP=$(mktemp)
+  if ! _fetch_file "$src" \
     | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g" \
-    > "$outfile"
+    > "$TMP"; then
+    rm -f "$TMP"
+    echo "ERROR: failed to fetch '$src'" >&2
+    exit 1
+  fi
+  mv "$TMP" "$outfile"
 done <<< "$MANIFEST"
 
 GITIGNORE="${TARGET}/.gitignore"

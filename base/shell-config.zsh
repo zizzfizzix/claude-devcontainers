@@ -1,5 +1,5 @@
 # History
-export HISTFILE=/commandhistory/.bash_history
+export HISTFILE=/commandhistory/.zsh_history
 export SAVEHIST=10000
 setopt INC_APPEND_HISTORY
 

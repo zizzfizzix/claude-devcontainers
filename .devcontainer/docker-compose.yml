@@ -2,6 +2,9 @@ services:
   devcontainer:
     image: mcr.microsoft.com/devcontainers/base:debian
     network_mode: "service:claude-proxy"
+    depends_on:
+      claude-proxy:
+        condition: service_healthy
     volumes:
       - ..:/workspace:cached
       - /workspace/.devcontainer/.data/proxy # anonymous volume shadows real credentials

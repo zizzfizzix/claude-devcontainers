@@ -7,10 +7,6 @@ grep -v '^::1[[:space:]]' /etc/hosts > "$HOSTS_TMP"
 sudo cp "$HOSTS_TMP" /etc/hosts
 rm -f "$HOSTS_TMP"
 
-# Wait for proxy to generate the CA cert (proxy startup takes time for DNS resolution + firewall setup)
-timeout 120 bash -c 'until [ -f /proxy-certs/mitmca.pem ]; do sleep 2; done' \
-  || { echo "ERROR: timed out waiting for /proxy-certs/mitmca.pem"; exit 1; }
-
 # Trust the mitmproxy CA cert (system store + certifi bundle)
 sudo mkdir -p /usr/local/share/ca-certificates
 sudo cp /proxy-certs/mitmca.pem /usr/local/share/ca-certificates/claude-proxy-ca.crt

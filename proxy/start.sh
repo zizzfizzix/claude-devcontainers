@@ -35,10 +35,6 @@ _valid_ip() {
 # ---------------------------------------------------------------------------
 # Disable IPv6 to prevent egress bypass
 # ---------------------------------------------------------------------------
-echo "Disabling IPv6..."
-sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null
-sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null
-
 if command -v ip6tables >/dev/null 2>&1; then
     ip6tables -P INPUT DROP 2>/dev/null || true
     ip6tables -P FORWARD DROP 2>/dev/null || true

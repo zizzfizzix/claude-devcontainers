@@ -44,47 +44,41 @@ else
     echo "WARNING: ip6tables not found — IPv6 blocked via sysctl only"
 fi
 
-# 1. Extract Docker DNS info BEFORE any flushing
-DOCKER_DNS_RULES=$(iptables-save -t nat | grep "127\.0\.0\.11" || true)
-
-# Flush existing rules and delete existing ipsets
+# ---------------------------------------------------------------------------
+# iptables filter rules (egress firewall)
+#
+# We use iptables (nft backend) for the filter table. The default iptables on
+# this image uses the nftables backend — do NOT switch to iptables-legacy, as
+# Docker also uses nftables and mixing backends causes rules to silently fail.
+# ---------------------------------------------------------------------------
 iptables -F
 iptables -X
-iptables -t nat -F
-iptables -t nat -X
 iptables -t mangle -F
 iptables -t mangle -X
 ipset destroy allowed-domains 2>/dev/null || true
 
-# 2. Selectively restore ONLY internal Docker DNS resolution
-if [ -n "$DOCKER_DNS_RULES" ]; then
-    echo "Restoring Docker DNS rules..."
-    iptables -t nat -N DOCKER_OUTPUT 2>/dev/null || true
-    iptables -t nat -N DOCKER_POSTROUTING 2>/dev/null || true
-    echo "$DOCKER_DNS_RULES" | xargs -L 1 iptables -t nat
-else
-    echo "No Docker DNS rules to restore"
-fi
-
-# First allow DNS and localhost before any restrictions
 # Allow outbound DNS
 iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
-# Allow inbound DNS responses
 iptables -A INPUT -p udp --sport 53 -j ACCEPT
 # Allow outbound SSH
 iptables -A OUTPUT -p tcp --dport 22 -j ACCEPT
-# Allow inbound SSH responses
 iptables -A INPUT -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT
-# Allow localhost
+# Allow localhost — both by interface (-o lo) and by destination (-d 127.0.0.0/8).
+# The destination match is needed because nat REDIRECT changes the destination to
+# 127.0.0.1, but the filter OUTPUT chain runs BEFORE re-routing, so the output
+# interface is still eth0, not lo.
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
+iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT
 
 # Verify required tools are available
-for tool in aggregate dig jq curl ipset iptables; do
+for tool in aggregate dig jq curl ipset iptables nft; do
     command -v "$tool" >/dev/null || { echo "ERROR: required tool '$tool' not found"; exit 1; }
 done
 
-# Create ipset with CIDR support
+# ---------------------------------------------------------------------------
+# Build the allowed-domains ipset (IP allowlist for direct egress)
+# ---------------------------------------------------------------------------
 ipset create allowed-domains hash:net
 
 # Fetch GitHub meta information and aggregate + add their IP ranges
@@ -137,7 +131,10 @@ domains=(
     "marketplace.visualstudio.com"
     "vscode.blob.core.windows.net"
     "update.code.visualstudio.com"
+    "githubusercontent.com"
     "objects.githubusercontent.com"
+    "release-assets.githubusercontent.com"
+    "raw.githubusercontent.com"
 )
 
 # Append extra domains from environment variable (space-separated)
@@ -177,7 +174,9 @@ for i in "${!domains[@]}"; do
     done < <(echo "$ips")
 done
 
-# Get host IP from default route
+# ---------------------------------------------------------------------------
+# Remaining filter rules (depend on ipset and host network detection)
+# ---------------------------------------------------------------------------
 HOST_IP=$(ip route | grep default | cut -d" " -f3)
 if [ -z "$HOST_IP" ]; then
     echo "ERROR: Failed to detect host IP"
@@ -187,7 +186,6 @@ fi
 HOST_NETWORK=$(echo "$HOST_IP" | sed "s/\.[0-9]*$/.0\/24/")
 echo "Host network detected as: $HOST_NETWORK"
 
-# Set up remaining iptables rules
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 
@@ -223,13 +221,37 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Set up transparent proxy via OUTPUT chain (shared network namespace)
+# Transparent proxy via nftables nat REDIRECT
+#
+# Three things conspire to make this tricky in Docker:
+#
+# 1. Docker uses nftables (iptables-nft) for its internal DNS NAT. It creates
+#    an "ip nat" table with an OUTPUT chain at priority dstnat (-100). If we
+#    add REDIRECT rules via iptables (even iptables-nft), they land in this
+#    same chain but AFTER Docker's rules. A separate nft table at a different
+#    priority doesn't work either — once conntrack sees the first nat chain's
+#    "policy accept", it records a no-NAT decision and skips later chains.
+#    Fix: nft insert into Docker's own chain so our rules run first.
+#
+# 2. The devcontainer shares our network namespace (network_mode: service:)
+#    but has a separate user namespace. nftables "meta skuid" returns NFT_BREAK
+#    (no match at all) when it can't map the socket owner's UID across the
+#    namespace boundary. So "meta skuid != 0 redirect" silently skips packets
+#    from the devcontainer instead of redirecting them.
+#    Fix: use two rules — "meta skuid 0 accept" (matches proxy, whose UID IS
+#    resolvable in our own namespace) then unconditional "redirect" for the rest.
+#
+# 3. The "meta skuid 0 accept" rule must be scoped to tcp dport 443. Otherwise
+#    it also matches mitmproxy's DNS lookups to 127.0.0.11:53, preventing
+#    Docker's DNS DNAT rule (later in the chain) from translating port 53 to
+#    Docker's internal DNS port — breaking name resolution for mitmproxy.
 # ---------------------------------------------------------------------------
-# Loop prevention: skip REDIRECT for mitmproxy's own outbound connections
-iptables -t nat -A OUTPUT -m owner --uid-owner "$(id -u)" -j RETURN
-# Redirect all other outbound HTTPS to transparent proxy port
-iptables -t nat -A OUTPUT -p tcp --dport 443 -j REDIRECT --to-port 8443
+MITMPROXY_UID=$(id -u)
+nft insert rule ip nat OUTPUT tcp dport { 80, 443 } redirect to :8443
+nft insert rule ip nat OUTPUT tcp dport { 80, 443 } meta skuid "$MITMPROXY_UID" accept
 
+# Pass the allowed domains to the addon for clear 403 errors
+export ALLOWED_DOMAINS="${domains[*]}"
 export PYTHONUNBUFFERED=1
 
 MITM_ARGS=(

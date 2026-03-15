@@ -1,7 +1,8 @@
 """
-mitmproxy addon: swap dummy tokens ↔ real tokens in transit.
+mitmproxy addon for the Claude devcontainer proxy.
 
-Claude Code manages its own credential lifecycle. This addon only:
+Responsibilities:
+  - Blocks requests to domains not in the allowlist (clear 403)
   - Injects real tokens into outbound requests (replacing dummies)
   - Captures real tokens from OAuth responses, persists them,
     and rewrites the response to return dummies back to Claude Code
@@ -29,6 +30,27 @@ DUMMY_REFRESH_TOKEN = "dummy-refresh-token"
 
 OAUTH_HOST = "platform.claude.com"
 OAUTH_PATH = "/v1/oauth/token"
+
+# Allowed domains — loaded from ALLOWED_DOMAINS env var (space-separated),
+# set by start.sh from the same list used for the ipset firewall.
+_ALLOWED_DOMAINS: set[str] = set()
+_raw = os.environ.get("ALLOWED_DOMAINS", "")
+if _raw:
+    _ALLOWED_DOMAINS = {d.strip() for d in _raw.split() if d.strip()}
+    log.info("Loaded %d allowed domains", len(_ALLOWED_DOMAINS))
+
+
+def _is_domain_allowed(host: str) -> bool:
+    """Check if a host matches any allowed domain (exact or subdomain)."""
+    if not _ALLOWED_DOMAINS:
+        return True  # no allowlist configured, allow all
+    host = host.lower().rstrip(".")
+    for domain in _ALLOWED_DOMAINS:
+        domain = domain.lower().rstrip(".")
+        if host == domain or host.endswith("." + domain):
+            return True
+    return False
+
 
 # Content-types that are safe to decode as text and scrub
 _TEXT_CONTENT_TYPES = (
@@ -187,6 +209,17 @@ class TokenSwapAddon:
         log.info("Health server started on 127.0.0.1:3100")
 
     def request(self, flow: http.HTTPFlow) -> None:
+        # Block requests to domains not in the allowlist
+        host = flow.request.pretty_host
+        if not _is_domain_allowed(host):
+            flow.response = http.Response.make(
+                403,
+                f"Blocked by devcontainer proxy: {host} is not in the allowed domains list.\n",
+                {"Content-Type": "text/plain"},
+            )
+            ctx.log.info(f"[domain-filter] blocked request to {host}{flow.request.path}")
+            return
+
         if not store.loaded:
             return
 

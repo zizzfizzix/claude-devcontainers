@@ -11,7 +11,7 @@ services:
       - ./.data/claude:/home/vscode/.claude
       - ./.data/certs:/proxy-certs:ro
     environment:
-      TZ: ${TZ:-Europe/London}
+      TZ: ${TZ:-UTC}
       NODE_OPTIONS: "--max-old-space-size=4096"
       NODE_EXTRA_CA_CERTS: "/proxy-certs/mitmca.pem"
       CLAUDE_CONFIG_DIR: /home/vscode/.claude

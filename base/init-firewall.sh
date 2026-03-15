@@ -2,6 +2,55 @@
 set -euo pipefail  # Exit on error, undefined vars, and pipeline failures
 IFS=$'\n\t'       # Stricter word splitting
 
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+
+_valid_cidr() {
+    local cidr="$1" ip prefix
+    IFS=/ read -r ip prefix <<< "$cidr"
+    [[ "$prefix" =~ ^[0-9]+$ ]] && (( prefix >= 1 && prefix <= 32 )) || return 1
+    local -a octets
+    IFS=. read -ra octets <<< "$ip"
+    [[ ${#octets[@]} -eq 4 ]] || return 1
+    local octet
+    for octet in "${octets[@]}"; do
+        [[ "$octet" =~ ^[0-9]+$ ]] && (( octet >= 0 && octet <= 255 )) || return 1
+    done
+    return 0
+}
+
+_valid_ip() {
+    local ip="$1"
+    local -a octets
+    IFS=. read -ra octets <<< "$ip"
+    [[ ${#octets[@]} -eq 4 ]] || return 1
+    local octet
+    for octet in "${octets[@]}"; do
+        [[ "$octet" =~ ^[0-9]+$ ]] && (( octet >= 0 && octet <= 255 )) || return 1
+    done
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Disable IPv6 to prevent egress bypass
+# ---------------------------------------------------------------------------
+echo "Disabling IPv6..."
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null
+sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null
+
+# Defense-in-depth: drop all IPv6 at the firewall level too.
+# If the sysctl is ever re-enabled (e.g. by a privileged child process),
+# traffic would otherwise bypass the IPv4 allowlist entirely.
+if command -v ip6tables >/dev/null 2>&1; then
+    ip6tables -P INPUT DROP 2>/dev/null || true
+    ip6tables -P FORWARD DROP 2>/dev/null || true
+    ip6tables -P OUTPUT DROP 2>/dev/null || true
+    echo "IPv6 firewall set to DROP"
+else
+    echo "WARNING: ip6tables not found — IPv6 blocked via sysctl only"
+fi
+
 # 1. Extract Docker DNS info BEFORE any flushing
 DOCKER_DNS_RULES=$(iptables-save -t nat | grep "127\.0\.0\.11" || true)
 
@@ -37,6 +86,11 @@ iptables -A INPUT -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 
+# Verify required tools are available
+for tool in aggregate dig jq curl ipset iptables; do
+    command -v "$tool" >/dev/null || { echo "ERROR: required tool '$tool' not found"; exit 1; }
+done
+
 # Create ipset with CIDR support
 ipset create allowed-domains hash:net
 
@@ -54,39 +108,72 @@ if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
 fi
 
 echo "Processing GitHub IPs..."
+gh_ips=$(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q 2>/dev/null || true)
+if [ -z "$gh_ips" ]; then
+    echo "ERROR: Failed to aggregate GitHub IP ranges"
+    exit 1
+fi
 while read -r cidr; do
-    if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+    if ! _valid_cidr "$cidr"; then
         echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
         exit 1
     fi
     echo "Adding GitHub range $cidr"
     ipset add --exist allowed-domains "$cidr"
-done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
+done <<< "$gh_ips"
 
-# Resolve and add other allowed domains
-for domain in \
-    "json.schemastore.org" \
-    "claude.com" \
-    "platform.claude.com" \
-    "storage.googleapis.com" \
-    "claude.ai" \
-    "registry.npmjs.org" \
-    "api.anthropic.com" \
-    "sentry.io" \
-    "statsig.anthropic.com" \
-    "statsig.com" \
-    "marketplace.visualstudio.com" \
-    "vscode.blob.core.windows.net" \
-    "update.code.visualstudio.com"; do
-    echo "Resolving $domain..."
-    ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
+# ---------------------------------------------------------------------------
+# Resolve allowed domains in parallel
+# ---------------------------------------------------------------------------
+# NOTE: IPs are resolved once at container start and cached in ipset. If a
+# domain's IPs rotate (e.g. CDN), the allowlist becomes stale and connections
+# will be blocked until the container is restarted (poststart re-runs this script).
+
+domains=(
+    "json.schemastore.org"
+    "claude.com"
+    "platform.claude.com"
+    "storage.googleapis.com"
+    "claude.ai"
+    "registry.npmjs.org"
+    "api.anthropic.com"
+    "sentry.io"
+    "statsig.anthropic.com"
+    "statsig.com"
+    "marketplace.visualstudio.com"
+    "vscode.blob.core.windows.net"
+    "update.code.visualstudio.com"
+)
+
+# Append extra domains from environment variable (space-separated)
+if [ -n "${EXTRA_ALLOWED_DOMAINS:-}" ]; then
+    read -ra extra_domains <<< "$EXTRA_ALLOWED_DOMAINS"
+    domains+=("${extra_domains[@]}")
+fi
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+echo "Resolving ${#domains[@]} domains in parallel..."
+for i in "${!domains[@]}"; do
+    domain="${domains[$i]}"
+    (
+        dig +time=5 +tries=2 +noall +answer A "$domain" \
+            | awk '$4 == "A" {print $5}' \
+            > "${tmpdir}/${i}"
+    ) &
+done
+wait  # wait for all background DNS lookups
+
+for i in "${!domains[@]}"; do
+    domain="${domains[$i]}"
+    ips=$(cat "${tmpdir}/${i}")
     if [ -z "$ips" ]; then
-        echo "ERROR: Failed to resolve $domain"
-        exit 1
+        echo "WARNING: Failed to resolve $domain — skipping (domain will not be allowed)"
+        continue
     fi
-
     while read -r ip; do
-        if [[ ! "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        if ! _valid_ip "$ip"; then
             echo "ERROR: Invalid IP from DNS for $domain: $ip"
             exit 1
         fi
@@ -94,26 +181,6 @@ for domain in \
         ipset add --exist allowed-domains "$ip"
     done < <(echo "$ips")
 done
-
-# Resolve and add extra domains (set via EXTRA_ALLOWED_DOMAINS env var, space-separated)
-if [ -n "${EXTRA_ALLOWED_DOMAINS:-}" ]; then
-    for domain in $EXTRA_ALLOWED_DOMAINS; do
-        echo "Resolving extra domain $domain..."
-        ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
-        if [ -z "$ips" ]; then
-            echo "WARNING: Failed to resolve extra domain $domain - skipping"
-            continue
-        fi
-        while read -r ip; do
-            if [[ ! "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-                echo "WARNING: Invalid IP from DNS for $domain: $ip - skipping"
-                continue
-            fi
-            echo "Adding $ip for $domain"
-            ipset add --exist allowed-domains "$ip"
-        done < <(echo "$ips")
-    done
-fi
 
 # Get host IP from default route
 HOST_IP=$(ip route | grep default | cut -d" " -f3)

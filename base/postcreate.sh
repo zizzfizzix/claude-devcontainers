@@ -11,6 +11,7 @@ ARCH=$(dpkg --print-architecture)
 GIT_DELTA_VERSION="${GIT_DELTA_VERSION:-0.18.2}"
 TMP=$(mktemp --suffix=.deb)
 wget -qO "$TMP" "https://github.com/dandavison/delta/releases/download/${GIT_DELTA_VERSION}/git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
+[[ -s "$TMP" ]] || { echo "ERROR: Failed to download git-delta"; rm -f "$TMP"; exit 1; }
 sudo dpkg -i "$TMP"
 rm "$TMP"
 

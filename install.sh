@@ -33,6 +33,11 @@ mkdir -p "$DEST"
 PROJECT_NAME="${TARGET##*/}"
 WORKSPACE_FOLDER="/${PROJECT_NAME}"
 
+# Escape values for use as sed replacement strings (delimiter is |)
+_sed_escape() { printf '%s\n' "$1" | sed 's/[\\&|]/\\&/g'; }
+SAFE_PROJECT_NAME=$(_sed_escape "$PROJECT_NAME")
+SAFE_WORKSPACE_FOLDER=$(_sed_escape "$WORKSPACE_FOLDER")
+
 # Create the bind-mount data directories and keep them out of git.
 mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 
@@ -44,11 +49,15 @@ mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 MANIFEST=$(curl -fsSL "${REPO}/templates/${TEMPLATE}/manifest.txt")
 while IFS=: read -r src dest flag; do
   [[ -z "$src" || "$src" == \#* ]] && continue
+  if [[ -z "$dest" ]]; then
+    echo "ERROR: malformed manifest line (missing dest field): '$src'" >&2
+    exit 1
+  fi
   outfile="${DEST}/${dest}"
   [[ "$flag" == "init" && -f "$outfile" ]] && continue
   mkdir -p "$(dirname "$outfile")"
   curl -fsSL "${REPO}/${src}" \
-    | sed "s|__PROJECT_NAME__|${PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${WORKSPACE_FOLDER}|g" \
+    | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g" \
     > "$outfile"
 done <<< "$MANIFEST"
 

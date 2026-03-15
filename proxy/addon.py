@@ -11,11 +11,11 @@ Claude Code manages its own credential lifecycle. This addon only:
 import json
 import logging
 import os
-import re
 import shutil
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
+from urllib.parse import parse_qs, urlencode
 
 from mitmproxy import ctx, http
 
@@ -28,13 +28,22 @@ DUMMY_ACCESS_TOKEN = "dummy-access-token"
 DUMMY_REFRESH_TOKEN = "dummy-refresh-token"
 
 OAUTH_HOST = "platform.claude.com"
+OAUTH_PATH = "/v1/oauth/token"
+
+# Content-types that are safe to decode as text and scrub
+_TEXT_CONTENT_TYPES = (
+    "text/",
+    "application/json",
+    "application/xml",
+    "application/x-www-form-urlencoded",
+    "application/javascript",
+)
 
 
 def _mask(token: str) -> str:
     if len(token) <= 12:
         return "***"
     return f"{token[:6]}...{token[-6:]}"
-OAUTH_PATH = "/v1/oauth/token"
 
 
 # ---------------------------------------------------------------------------
@@ -54,16 +63,19 @@ class CredentialsStore:
                 with open(self.path) as f:
                     self._creds = json.load(f)
                 log.info("Loaded credentials from %s", self.path)
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, ValueError) as e:
                 log.warning("Failed to load credentials: %s", e)
                 self._creds = None
 
     def save(self, creds: dict) -> None:
         with self._lock:
-            self._creds = creds
+            # Merge with existing credentials so partial updates don't drop tokens
+            self._creds = {**(self._creds or {}), **creds}
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            with open(self.path, "w") as f:
-                json.dump(creds, f, indent=2)
+            # Create/truncate with mode 0o600 from the start — no readable window
+            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                json.dump(self._creds, f, indent=2)
             log.info("Saved credentials to %s", self.path)
 
     @property
@@ -107,8 +119,39 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 def _start_health_server() -> None:
-    server = HTTPServer(("", 3100), HealthHandler)
+    server = HTTPServer(("127.0.0.1", 3100), HealthHandler)
     server.serve_forever()
+
+
+# ---------------------------------------------------------------------------
+# JSON scrubbing helper
+# ---------------------------------------------------------------------------
+
+def _scrub_json(obj, real_access: Optional[str], real_refresh: Optional[str]) -> tuple:
+    """Recursively walk a JSON-decoded structure, replacing token string values.
+
+    Returns (scrubbed_obj, list_of_scrubbed_labels).  Matches only exact string
+    values (not substrings), which avoids false positives while covering any
+    field name the token might appear under.
+    """
+    scrubbed = []
+
+    def _walk(node):
+        if isinstance(node, str):
+            if real_access and node == real_access:
+                scrubbed.append(f"access_token {_mask(real_access)}")
+                return DUMMY_ACCESS_TOKEN
+            if real_refresh and node == real_refresh:
+                scrubbed.append(f"refresh_token {_mask(real_refresh)}")
+                return DUMMY_REFRESH_TOKEN
+            return node
+        if isinstance(node, dict):
+            return {k: _walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+        return node
+
+    return _walk(obj), scrubbed
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +184,7 @@ class TokenSwapAddon:
 
         t = threading.Thread(target=_start_health_server, daemon=True)
         t.start()
-        log.info("Health server started on :3100")
+        log.info("Health server started on 127.0.0.1:3100")
 
     def request(self, flow: http.HTTPFlow) -> None:
         if not store.loaded:
@@ -194,10 +237,9 @@ class TokenSwapAddon:
                     flow.request.content = json.dumps(body).encode()
                     ctx.log.info(f"[token-swap] refresh-token substituted in OAuth request body: {DUMMY_REFRESH_TOKEN} → {_mask(real_refresh)} (JSON)")
                     flow.comment = (flow.comment + " | " if flow.comment else "") + f"refresh-token substituted ({DUMMY_REFRESH_TOKEN} → {_mask(real_refresh)}, JSON)"
-            except Exception:
-                pass
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                log.warning("Failed to parse/swap refresh token in JSON request body: %s", e)
         elif "application/x-www-form-urlencoded" in ct:
-            from urllib.parse import parse_qs, urlencode
             params = parse_qs(flow.request.content.decode(), keep_blank_values=True)
             if params.get("refresh_token") == [DUMMY_REFRESH_TOKEN]:
                 params["refresh_token"] = [real_refresh]
@@ -208,7 +250,8 @@ class TokenSwapAddon:
     def _handle_oauth_response(self, flow: http.HTTPFlow) -> None:
         try:
             body = json.loads(flow.response.content)
-        except Exception:
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            log.warning("Failed to parse OAuth response body: %s", e)
             return
 
         real_access = body.get("access_token")
@@ -246,21 +289,43 @@ class TokenSwapAddon:
         real_refresh = store.refresh_token
         if not real_access and not real_refresh:
             return
+
+        # Only scrub text-based responses to avoid corrupting binary content
+        ct = flow.response.headers.get("content-type", "")
+        if not any(ct.startswith(t) for t in _TEXT_CONTENT_TYPES):
+            return
+
         try:
             text = flow.response.content.decode("utf-8", errors="replace")
             scrubbed = []
-            if real_access and real_access in text:
-                text = text.replace(real_access, DUMMY_ACCESS_TOKEN)
-                scrubbed.append(f"access_token {_mask(real_access)}")
-            if real_refresh and real_refresh in text:
-                text = text.replace(real_refresh, DUMMY_REFRESH_TOKEN)
-                scrubbed.append(f"refresh_token {_mask(real_refresh)}")
+
+            if "application/json" in ct:
+                # For JSON, walk the structure and replace exact string values.
+                # This avoids false positives from naive substring replacement
+                # (e.g. a token that happens to appear inside an error message).
+                try:
+                    data = json.loads(text)
+                    data, scrubbed = _scrub_json(data, real_access, real_refresh)
+                    if scrubbed:
+                        text = json.dumps(data)
+                except (json.JSONDecodeError, ValueError):
+                    pass  # fall through to text replacement below
+
+            if not scrubbed:
+                # Non-JSON (or unparseable JSON): fall back to substring replacement
+                if real_access and real_access in text:
+                    text = text.replace(real_access, DUMMY_ACCESS_TOKEN)
+                    scrubbed.append(f"access_token {_mask(real_access)}")
+                if real_refresh and real_refresh in text:
+                    text = text.replace(real_refresh, DUMMY_REFRESH_TOKEN)
+                    scrubbed.append(f"refresh_token {_mask(real_refresh)}")
+
             if scrubbed:
                 flow.response.content = text.encode("utf-8")
                 ctx.log.info(f"[token-swap] scrubbed from response body ({flow.request.pretty_url}): {', '.join(scrubbed)}")
                 flow.comment = (flow.comment + " | " if flow.comment else "") + f"scrubbed: {', '.join(scrubbed)}"
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("Failed to scrub response body for %s: %s", flow.request.pretty_url, e)
 
 
 addons = [TokenSwapAddon()]

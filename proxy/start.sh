@@ -123,6 +123,7 @@ done <<< "$gh_ips"
 # will be blocked until the container is restarted.
 
 domains=(
+    "github.com"
     "json.schemastore.org"
     "claude.com"
     "platform.claude.com"
@@ -136,6 +137,7 @@ domains=(
     "marketplace.visualstudio.com"
     "vscode.blob.core.windows.net"
     "update.code.visualstudio.com"
+    "objects.githubusercontent.com"
 )
 
 # Append extra domains from environment variable (space-separated)

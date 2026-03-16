@@ -82,7 +82,6 @@ while IFS=: read -r src dest flag; do
   outfile="${DEST}/${dest}"
   [[ "$flag" == "init" && -f "$outfile" ]] && continue
   mkdir -p "$(dirname "$outfile")"
-  local TMP
   TMP=$(mktemp)
   if ! _fetch_file "$src" \
     | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g" \

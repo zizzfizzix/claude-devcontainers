@@ -22,7 +22,8 @@
         "dendron.dendron",
         "yzhang.markdown-all-in-one",
         "davidanson.vscode-markdownlint",
-        "eamodio.gitlens"
+        "eamodio.gitlens",
+        "jackiotyu.git-worktree-manager"
       ],
       "settings": {
         "editor.formatOnSave": true,

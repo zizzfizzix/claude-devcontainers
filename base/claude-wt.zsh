@@ -56,5 +56,13 @@ claude-wt() {
       > "$TASKS_FILE"
   fi
 
-  code -r "$WT"
+  # Refresh the IPC socket in case the shell's VSCODE_IPC_HOOK_CLI is stale
+  # (e.g. after manually switching back to main without going through VS Code).
+  local FRESH_SOCK
+  FRESH_SOCK=$(ls -t /tmp/vscode-ipc-*.sock 2>/dev/null | head -1)
+  if [[ -n "$FRESH_SOCK" ]]; then
+    VSCODE_IPC_HOOK_CLI="$FRESH_SOCK" code -r "$WT"
+  else
+    code -r "$WT"
+  fi
 }

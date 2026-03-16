@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-pm-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "zizzfizzix/claude-pm-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "claude-md@claude-pm-plugins": true
+  }
+}

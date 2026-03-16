@@ -40,6 +40,12 @@ sudo mkdir -p /etc/zsh/zshrc.d
 sudo install -m 644 "$DEVCONTAINER_DIR/shell-config.zsh" /etc/zsh/zshrc.d/shell-config.zsh
 sudo install -m 644 "$DEVCONTAINER_DIR/claude-wt.zsh"    /etc/zsh/zshrc.d/claude-wt.zsh
 
+# Install zsh-ai-plugin (@ natural-language-to-command)
+# https://github.com/zizzfizzix/zsh-ai-plugin
+git clone --depth=1 https://github.com/zizzfizzix/zsh-ai-plugin /tmp/zsh-ai-plugin
+sudo install -m 644 /tmp/zsh-ai-plugin/at-command.plugin.zsh /etc/zsh/zshrc.d/at-command.zsh
+rm -rf /tmp/zsh-ai-plugin
+
 # Wire up the drop-in directory in /etc/zsh/zshrc if not already done
 grep -qF 'zshrc.d' /etc/zsh/zshrc 2>/dev/null || \
   echo 'for f in /etc/zsh/zshrc.d/*.zsh; do source "$f"; done' | sudo tee -a /etc/zsh/zshrc > /dev/null

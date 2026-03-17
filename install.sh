@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
 # Bootstrap a Claude Code devcontainer into a target repository.
 #
-# One-liner (no clone needed):
-#   curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash -s -- typescript
+# Interactive (prompts for template and target directory):
+#   ./install.sh
+#   curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash
 #
-# Local usage (from a clone):
+# Non-interactive:
 #   ./install.sh [typescript|php|research] [target-directory]
+#   curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash -s -- typescript
 #
 # Local mode (copy from a local checkout instead of fetching from GitHub):
 #   CLAUDE_DEVCONTAINERS_REPO=/path/to/local/checkout ./install.sh [typescript|php|research] [target-directory]
 #
 # target-directory defaults to the current directory.
 # Set CLAUDE_DEVCONTAINERS_REPO to override the raw-file base URL or point to a local directory.
+#
+# Works on Linux, macOS, WSL, and Git Bash (Windows).
 
 set -euo pipefail
 
-TEMPLATE="${1:-typescript}"
-TARGET="$(cd "${2:-.}" && pwd)"
 REPO="${CLAUDE_DEVCONTAINERS_REPO:-https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main}"
-DEST="${TARGET}/.devcontainer"
 
 # Detect local mode: REPO is a local path if it starts with /, ./, or ../
 if [[ "$REPO" == /* || "$REPO" == ./* || "$REPO" == ../* ]]; then
@@ -29,16 +30,62 @@ else
   LOCAL_MODE=false
 fi
 
-case "$TEMPLATE" in
-  typescript|php|research) ;;
-  *)
-    echo "ERROR: unknown template '${TEMPLATE}'. Available: typescript, php, research" >&2
-    exit 1
-    ;;
-esac
+TEMPLATES=(typescript php research)
+DESCRIPTIONS=(
+  "typescript  – Node.js / TypeScript (npm registry access)"
+  "php         – PHP 8.2 + Composer (packagist / WordPress domains)"
+  "research    – Markdown / notes (unrestricted network)"
+)
+
+if [[ $# -eq 0 ]]; then
+  # ── Interactive mode ────────────────────────────────────────────────────────
+  echo ""
+  echo "Claude Code Devcontainer Installer"
+  echo "==================================="
+  echo ""
+  echo "Select a template:"
+  echo ""
+
+  PS3=$'\nTemplate: '
+  select desc in "${DESCRIPTIONS[@]}"; do
+    idx=$(( REPLY - 1 ))
+    if [[ $idx -ge 0 && $idx -lt ${#TEMPLATES[@]} ]]; then
+      TEMPLATE="${TEMPLATES[$idx]}"
+      break
+    fi
+    echo "Please enter a number between 1 and ${#TEMPLATES[@]}."
+  done
+
+  echo ""
+  read -rp "Target directory [.]: " raw_target
+  raw_target="${raw_target:-.}"
+  TARGET="$(cd "$raw_target" && pwd)"
+
+  echo ""
+  echo "  Template : $TEMPLATE"
+  echo "  Target   : $TARGET"
+  echo ""
+  read -rp "Proceed? [Y/n]: " confirm
+  case "${confirm,,}" in
+    n|no) echo "Aborted."; exit 0 ;;
+  esac
+else
+  # ── Non-interactive mode (original behaviour) ───────────────────────────────
+  TEMPLATE="${1:-typescript}"
+  TARGET="$(cd "${2:-.}" && pwd)"
+fi
+
+# Validate template
+valid=false
+for t in "${TEMPLATES[@]}"; do [[ "$t" == "$TEMPLATE" ]] && valid=true && break; done
+if [[ "$valid" == false ]]; then
+  echo "ERROR: unknown template '${TEMPLATE}'. Available: ${TEMPLATES[*]}" >&2
+  exit 1
+fi
 
 [[ -d "$TARGET" ]] || { echo "ERROR: '${TARGET}' is not a directory" >&2; exit 1; }
 
+DEST="${TARGET}/.devcontainer"
 echo "Installing '${TEMPLATE}' devcontainer into ${DEST}..."
 mkdir -p "$DEST"
 

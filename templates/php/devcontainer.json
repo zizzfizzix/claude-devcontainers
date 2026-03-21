@@ -20,14 +20,7 @@
   "workspaceFolder": "__WORKSPACE_FOLDER__",
   "customizations": {
     "vscode": {
-      "extensions": [
-        "Anthropic.claude-code",
-        "bmewburn.vscode-intelephense-client",
-        "xdebug.php-debug",
-        "esbenp.prettier-vscode",
-        "eamodio.gitlens",
-        "jackiotyu.git-worktree-manager"
-      ],
+      "extensions": [__VSCODE_EXTENSIONS__],
       "settings": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",

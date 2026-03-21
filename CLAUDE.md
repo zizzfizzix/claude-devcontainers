@@ -14,11 +14,14 @@ Baseline devcontainer configs for Claude Code — installs a firewall-restricted
 ## Key Commands
 
 ```bash
-# Bootstrap a template into the current directory
+# Interactive installer (prompts for template + directory)
+./install.sh
+
+# Non-interactive: pass template (and optional target directory) directly
 ./install.sh typescript [target-directory]
 
-# Or from a local checkout of this repo
-CLAUDE_DEVCONTAINERS_REPO=/path/to/this/repo ./install.sh typescript /path/to/target
+# From a local checkout of this repo (interactive)
+CLAUDE_DEVCONTAINERS_REPO=/path/to/this/repo ./install.sh
 
 # Lint shell scripts (if shellcheck is available)
 shellcheck install.sh base/*.sh proxy/start.sh
@@ -27,6 +30,6 @@ shellcheck install.sh base/*.sh proxy/start.sh
 ## Adding a Template
 
 1. Create `templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`
-2. Add `<name>` to the `case` statement in `install.sh`
+2. Add `<name>` to the `TEMPLATES` and `DESCRIPTIONS` arrays in `install.sh`
 
 Update this file when you discover project conventions, preferences, or patterns worth preserving for future Claude Code sessions — keep it under 300 lines.

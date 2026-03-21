@@ -75,8 +75,8 @@ elif [[ $# -eq 0 ]]; then
   echo "  Target   : $TARGET"
   echo ""
   read -rp "Proceed? [Y/n]: " confirm
-  case "${confirm,,}" in
-    n|no) echo "Aborted."; exit 0 ;;
+  case "$confirm" in
+    n|N|no|No|NO) echo "Aborted."; exit 0 ;;
   esac
 else
   # ── Non-interactive mode (original behaviour) ───────────────────────────────

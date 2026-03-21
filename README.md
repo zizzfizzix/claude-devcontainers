@@ -4,26 +4,26 @@ Baseline devcontainer configs for [Claude Code](https://claude.ai/code). Adds a 
 
 ## Bootstrap a new repo
 
-Run the installer and follow the prompts:
+**Interactive** — prompts for template, target directory, and VS Code extensions:
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash
+bash <(curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh")
 ```
-
-It will ask you to pick a template and confirm the target directory. Then open the folder in VS Code → **Reopen in Container**.
 
 > `install.sh` downloads only the files it needs — no clone required.
 
-To skip the prompts, pass the template (and optionally a target directory) as arguments:
+**Non-interactive** — pass the template (and optionally a target directory) as arguments:
 
 ```bash
 curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash -s -- typescript
 curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash -s -- typescript /path/to/project
 ```
 
+Then open the folder in VS Code → **Reopen in Container**.
+
 ### Windows
 
-The installer works in **Git Bash** (ships with [Git for Windows](https://gitforwindows.org/)) without any changes. Run the same `curl | bash` command above from a Git Bash terminal.
+The installer works in **Git Bash** (ships with [Git for Windows](https://gitforwindows.org/)). Use the non-interactive form (`curl | bash -s -- typescript`) — `bash <(...)` process substitution is not supported in Git Bash.
 
 ## Templates
 
@@ -31,7 +31,7 @@ The installer works in **Git Bash** (ships with [Git for Windows](https://gitfor
 | ------------ | ------------------------------------------------- | ------------------------------------------------ |
 | `typescript` | `mcr.microsoft.com/devcontainers/base:debian`     | Node 24, git-delta, Claude Code                  |
 | `php`        | `mcr.microsoft.com/devcontainers/base:debian`     | PHP 8.2 + extensions, Composer, WP-CLI, Node 24  |
-| `research`   | `mcr.microsoft.com/devcontainers/base:debian`     | Pandoc, ripgrep, Dendron, Markdown tools — firewall disabled (`UNRESTRICTED_NETWORK=true`) |
+| `research`   | `mcr.microsoft.com/devcontainers/base:debian`     | Pandoc, ripgrep, Markdown tools — firewall disabled (`UNRESTRICTED_NETWORK=true`) |
 
 All templates include:
 

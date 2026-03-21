@@ -27,6 +27,14 @@ CLAUDE_DEVCONTAINERS_REPO=/path/to/this/repo ./install.sh
 shellcheck install.sh base/*.sh proxy/start.sh
 ```
 
+## Shell Compatibility
+
+`install.sh` must be compatible with **bash 3.2** (macOS default). Avoid bash 4+ features:
+
+- Use `case "$var" in n|N|no|No|NO)` instead of `${var,,}` (lowercase expansion)
+- Use indexed arrays only — no associative arrays (`declare -A`)
+- Test with `bash --version` if unsure; macOS ships 3.2 due to GPLv3 licensing
+
 ## Adding a Template
 
 1. Create `templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Bootstrap a Claude Code devcontainer into a target repository.
 #
-# Interactive (prompts for template and target directory):
+# Interactive (prompts for template, directory, and extensions):
 #   ./install.sh
-#   curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh" | bash
+#   bash <(curl -fsSL "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main/install.sh")
 #
 # Non-interactive:
 #   ./install.sh [typescript|php|research] [target-directory]
@@ -44,7 +44,12 @@ DESCRIPTIONS=(
   "research    – Markdown / notes (unrestricted network)"
 )
 
-if [[ $# -eq 0 ]]; then
+if [[ $# -eq 0 && ! ( -t 0 && -t 1 ) ]]; then
+  printf "ERROR: no template specified. When piping, pass the template explicitly:\n" >&2
+  printf "  curl -fsSL '%s/install.sh' | bash -s -- typescript\n" \
+    "https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main" >&2
+  exit 1
+elif [[ $# -eq 0 ]]; then
   # ── Interactive mode ────────────────────────────────────────────────────────
   printf "\n${_BOLD}Claude Code Devcontainer Installer${_RESET}\n"
   printf "${_DIM}===================================${_RESET}\n\n"

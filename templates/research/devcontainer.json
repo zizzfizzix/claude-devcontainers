@@ -17,14 +17,7 @@
   "workspaceFolder": "__WORKSPACE_FOLDER__",
   "customizations": {
     "vscode": {
-      "extensions": [
-        "Anthropic.claude-code",
-        "dendron.dendron",
-        "yzhang.markdown-all-in-one",
-        "davidanson.vscode-markdownlint",
-        "eamodio.gitlens",
-        "jackiotyu.git-worktree-manager"
-      ],
+      "extensions": [__VSCODE_EXTENSIONS__],
       "settings": {
         "editor.formatOnSave": true,
         "editor.wordWrap": "on",

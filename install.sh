@@ -19,6 +19,13 @@
 
 set -euo pipefail
 
+# ANSI colors — empty strings when stdout is not a TTY
+if [[ -t 1 ]]; then
+  _BOLD='\033[1m'; _DIM='\033[2m'; _GREEN='\033[1;32m'; _BLUE='\033[1;34m'; _RESET='\033[0m'
+else
+  _BOLD=''; _DIM=''; _GREEN=''; _BLUE=''; _RESET=''
+fi
+
 REPO="${CLAUDE_DEVCONTAINERS_REPO:-https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main}"
 
 # Detect local mode: REPO is a local path if it starts with /, ./, or ../
@@ -39,12 +46,9 @@ DESCRIPTIONS=(
 
 if [[ $# -eq 0 ]]; then
   # ── Interactive mode ────────────────────────────────────────────────────────
-  echo ""
-  echo "Claude Code Devcontainer Installer"
-  echo "==================================="
-  echo ""
-  echo "Select a template:"
-  echo ""
+  printf "\n${_BOLD}Claude Code Devcontainer Installer${_RESET}\n"
+  printf "${_DIM}===================================${_RESET}\n\n"
+  printf "${_BLUE}Select a template:${_RESET}\n\n"
 
   PS3=$'\nTemplate: '
   select desc in "${DESCRIPTIONS[@]}"; do
@@ -100,6 +104,60 @@ SAFE_WORKSPACE_FOLDER=$(_sed_escape "$WORKSPACE_FOLDER")
 # Create the bind-mount data directories and keep them out of git.
 mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 
+# --- VS Code extension selection ---
+# Format: "extension-id|Display Label|default(1=on)|scope(all or comma-sep template names)"
+_EXT_REGISTRY=(
+  "Anthropic.claude-code|Claude Code|1|all"
+  "CodeSmith.markdown-inline-editor-vscode|Markdown Inline Editor|1|all"
+  "yzhang.markdown-all-in-one|Markdown All-in-One|1|all"
+  "MermaidChart.vscode-mermaid-chart|Mermaid Chart|1|all"
+  "eamodio.gitlens|GitLens|1|all"
+  "jackiotyu.git-worktree-manager|Git Worktree Manager|1|all"
+  "dbaeumer.vscode-eslint|ESLint|1|typescript"
+  "esbenp.prettier-vscode|Prettier|1|typescript,php"
+  "bmewburn.vscode-intelephense-client|PHP Intelephense|1|php"
+  "xdebug.php-debug|PHP Debug|1|php"
+  "davidanson.vscode-markdownlint|Markdownlint|1|research"
+)
+
+_EXT_IDS=(); _EXT_LABELS=(); _EXT_STATES=()
+for _entry in "${_EXT_REGISTRY[@]}"; do
+  IFS='|' read -r _eid _elabel _edefault _escopes <<< "$_entry"
+  if [[ "$_escopes" == "all" || ",$_escopes," == *",$TEMPLATE,"* ]]; then
+    _EXT_IDS+=("$_eid"); _EXT_LABELS+=("$_elabel"); _EXT_STATES+=("$_edefault")
+  fi
+done
+
+if [[ -t 0 && -t 1 ]]; then
+  while true; do
+    printf "\n${_BLUE}VS Code extensions${_RESET} — toggle by number, Enter to accept:\n\n"
+    for _i in "${!_EXT_IDS[@]}"; do
+      if [[ "${_EXT_STATES[$_i]}" == "1" ]]; then
+        printf "  ${_GREEN}[x]${_RESET} %2d. %-30s ${_DIM}%s${_RESET}\n" "$((_i+1))" "${_EXT_LABELS[$_i]}" "${_EXT_IDS[$_i]}"
+      else
+        printf "  ${_DIM}[ ] %2d. %-30s %s${_RESET}\n" "$((_i+1))" "${_EXT_LABELS[$_i]}" "${_EXT_IDS[$_i]}"
+      fi
+    done
+    echo ""
+    read -r -p "  Toggle (space-separated numbers) or Enter to accept: " _input || break
+    [[ -z "$_input" ]] && break
+    for _num in $_input; do
+      if [[ "$_num" =~ ^[0-9]+$ ]] && (( _num >= 1 && _num <= ${#_EXT_IDS[@]} )); then
+        _idx=$((_num - 1))
+        [[ "${_EXT_STATES[$_idx]}" == "1" ]] && _EXT_STATES[$_idx]=0 || _EXT_STATES[$_idx]=1
+      fi
+    done
+  done
+fi
+
+_VSCODE_EXT_JSON=""
+for _i in "${!_EXT_IDS[@]}"; do
+  [[ "${_EXT_STATES[$_i]}" == "1" ]] || continue
+  [[ -n "$_VSCODE_EXT_JSON" ]] && _VSCODE_EXT_JSON+=", "
+  _VSCODE_EXT_JSON+="\"${_EXT_IDS[$_i]}\""
+done
+SAFE_VSCODE_EXTENSIONS=$(_sed_escape "$_VSCODE_EXT_JSON")
+
 # Fetch every file listed in the template's manifest.
 # Format: src:dest[:init]
 #   src   — path relative to repo root
@@ -131,7 +189,7 @@ while IFS=: read -r src dest flag; do
   mkdir -p "$(dirname "$outfile")"
   TMP=$(mktemp)
   if ! _fetch_file "$src" \
-    | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g" \
+    | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g;s|__VSCODE_EXTENSIONS__|${SAFE_VSCODE_EXTENSIONS}|g" \
     > "$TMP"; then
     rm -f "$TMP"
     echo "ERROR: failed to fetch '$src'" >&2

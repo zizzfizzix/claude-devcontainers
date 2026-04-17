@@ -9,3 +9,5 @@ proxy/Dockerfile:proxy/Dockerfile
 proxy/start.sh:proxy/start.sh
 templates/research/devcontainer.json:devcontainer.json
 templates/research/docker-compose.yml:docker-compose.yml
+base/features/acli/devcontainer-feature.json:features/acli/devcontainer-feature.json
+base/features/acli/install.sh:features/acli/install.sh

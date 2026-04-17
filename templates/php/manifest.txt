@@ -10,3 +10,5 @@ proxy/start.sh:proxy/start.sh
 templates/php/devcontainer.json:devcontainer.json
 templates/php/docker-compose.yml:docker-compose.yml
 templates/php/postcreate-php.sh:postcreate-php.sh
+base/features/acli/devcontainer-feature.json:features/acli/devcontainer-feature.json
+base/features/acli/install.sh:features/acli/install.sh

@@ -11,3 +11,9 @@ templates/research/devcontainer.json:devcontainer.json
 templates/research/docker-compose.yml:docker-compose.yml
 base/features/acli/devcontainer-feature.json:features/acli/devcontainer-feature.json
 base/features/acli/install.sh:features/acli/install.sh
+base/extensions.json:extensions.json
+base/update.sh:update.sh
+base/stubs/docker-compose.override.yml:docker-compose.override.yml:init
+base/stubs/postcreate.local.sh:postcreate.local.sh:init
+base/stubs/poststart.local.sh:poststart.local.sh:init
+base/stubs/shell-config.local.zsh:shell-config.local.zsh:init

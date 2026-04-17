@@ -1,0 +1,6 @@
+{
+  "id": "acli",
+  "version": "1.0.0",
+  "name": "Atlassian CLI (acli)",
+  "description": "Installs the Atlassian CLI for interacting with Atlassian Cloud services (Jira, Confluence, etc.)"
+}

@@ -5,7 +5,8 @@
     "ghcr.io/devcontainers-extra/features/fzf:1": {},
     "ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
       "packages": "pandoc,ripgrep"
-    }
+    },
+    "./features/acli": {}
   },
   "forwardPorts": [8081],
   "portsAttributes": {

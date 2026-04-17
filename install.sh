@@ -157,6 +157,7 @@ fi
 # Resolve the version tag to use for fetching files.
 if [[ -z "$VERSION_TAG" ]]; then
   VERSION_TAG=$(_resolve_latest_tag)
+  [[ "$VERSION_TAG" == "null" || -z "$VERSION_TAG" ]] && { echo "ERROR: could not resolve latest release tag from GitHub API. Check your network connection." >&2; exit 1; }
 fi
 
 # In remote mode, switch REPO base URL to the resolved tag so all fetches are versioned.
@@ -201,7 +202,8 @@ done < <(printf '%s' "$EXT_CATALOG_JSON" | jq -c --arg t "$TEMPLATE" \
   '.[] | select(.tier == "optional" and (.scopes | (contains(["all"]) or contains([$t]))))')
 
 # Interactive extension toggle UI
-if [[ -t 0 && -t 1 ]]; then
+EXT_LOCAL="${DEST}/extensions.local.json"
+if [[ -t 0 && -t 1 && ( "$UPDATE_MODE" != true || ! -f "$EXT_LOCAL" ) ]]; then
   while true; do
     printf "\n${_BLUE}VS Code extensions${_RESET} — toggle by number, Enter to accept:\n\n"
     for _i in "${!_EXT_IDS[@]}"; do
@@ -290,7 +292,6 @@ while IFS=: read -r src dest flag; do
 done <<< "$MANIFEST"
 
 # Write extensions.local.json from the user's optional selections (init — created once).
-EXT_LOCAL="${DEST}/extensions.local.json"
 if [[ ! -f "$EXT_LOCAL" ]]; then
   _SELECTED_EXTS=""
   for _i in "${!_EXT_IDS[@]}"; do

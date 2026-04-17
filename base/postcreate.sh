@@ -52,5 +52,5 @@ grep -qF 'zshrc.d' /etc/zsh/zshrc 2>/dev/null || \
 
 # Project-local postcreate hook — create .devcontainer/postcreate.local.sh to add project-specific setup.
 if [[ -f "${DEVCONTAINER_DIR}/postcreate.local.sh" ]]; then
-  bash "${DEVCONTAINER_DIR}/postcreate.local.sh"
+  . "${DEVCONTAINER_DIR}/postcreate.local.sh"
 fi

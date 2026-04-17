@@ -27,5 +27,5 @@ DEVCONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Project-local poststart hook — create .devcontainer/poststart.local.sh to add project-specific startup steps.
 if [[ -f "${DEVCONTAINER_DIR}/poststart.local.sh" ]]; then
-  bash "${DEVCONTAINER_DIR}/poststart.local.sh"
+  . "${DEVCONTAINER_DIR}/poststart.local.sh"
 fi

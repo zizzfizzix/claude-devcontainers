@@ -34,9 +34,9 @@ _resolve_latest_tag() {
 # _DC_UPDATING=1 prevents the exec'd copy from looping back into this block.
 if [[ "${_DC_UPDATING:-}" != "1" ]]; then
   LATEST_TAG=$(_resolve_latest_tag)
+  [[ "$LATEST_TAG" == "null" || -z "$LATEST_TAG" ]] && { echo "ERROR: could not resolve latest release tag from GitHub API. Check your network connection." >&2; exit 1; }
   TMP_SELF=$(mktemp)
   curl -fsSL "${RAW_BASE}/${LATEST_TAG}/base/update.sh" > "$TMP_SELF"
-  chmod +x "$TMP_SELF"
   _DC_UPDATING=1 _DC_LATEST_TAG="$LATEST_TAG" exec bash "$TMP_SELF"
 fi
 
@@ -52,6 +52,7 @@ CURRENT_VERSION="${STAMP#*@}"
 
 # Re-use the tag resolved in Phase 1 to avoid a second API call.
 LATEST_TAG="${_DC_LATEST_TAG:-$(_resolve_latest_tag)}"
+[[ "$LATEST_TAG" == "null" || -z "$LATEST_TAG" ]] && { echo "ERROR: could not resolve latest release tag from GitHub API. Check your network connection." >&2; exit 1; }
 
 if [[ "$CURRENT_VERSION" == "$LATEST_TAG" ]]; then
   printf "${_GREEN}Already up to date${_RESET} (%s@%s)\n" "$TEMPLATE" "$LATEST_TAG"

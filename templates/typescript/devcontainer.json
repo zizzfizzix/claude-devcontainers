@@ -11,7 +11,7 @@
     "8081": { "label": "mitmweb UI", "protocol": "http" }
   },
   "postCreateCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/postcreate.sh",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": ["docker-compose.yml", "docker-compose.override.yml"],
   "service": "devcontainer",
   "workspaceFolder": "__WORKSPACE_FOLDER__",
   "customizations": {

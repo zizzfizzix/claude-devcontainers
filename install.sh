@@ -58,6 +58,31 @@ DESCRIPTIONS=(
   "research    – Markdown / notes (unrestricted network)"
 )
 
+# Parse named flags before positional args
+VERSION_TAG=""
+UPDATE_MODE=false
+_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) VERSION_TAG="$2"; shift 2 ;;
+    --update)  UPDATE_MODE=true; shift ;;
+    *)         _ARGS+=("$1"); shift ;;
+  esac
+done
+if [[ ${#_ARGS[@]} -gt 0 ]]; then
+  set -- "${_ARGS[@]}"
+else
+  set --
+fi
+
+# If --update with no template arg, read template from the stamp in the current/target directory.
+if [[ "$UPDATE_MODE" == true && $# -eq 0 ]]; then
+  _target_stamp="${1:-.}/.devcontainer/.upstream-version"
+  [[ ! -f "$_target_stamp" ]] && { echo "ERROR: no .upstream-version found. Run install.sh without --update for a fresh install." >&2; exit 1; }
+  _stamp_content=$(cat "$_target_stamp")
+  set -- "${_stamp_content%@*}"
+fi
+
 if [[ $# -eq 0 && ! ( -t 0 && -t 1 ) ]]; then
   printf "ERROR: no template specified. When piping, pass the template explicitly:\n" >&2
   printf "  curl -fsSL '%s/install.sh' | bash -s -- typescript\n" \
@@ -84,6 +109,29 @@ elif [[ $# -eq 0 ]]; then
   raw_target="${raw_target:-.}"
   TARGET="$(cd "$raw_target" && pwd)"
 
+  VERSION_STAMP="${TARGET}/.devcontainer/.upstream-version"
+  if [[ -f "$VERSION_STAMP" ]]; then
+    _existing=$(cat "$VERSION_STAMP")
+    _latest=$(_resolve_latest_tag)
+    printf "\n${_BOLD}Existing devcontainer found:${_RESET} %s\n" "$_existing"
+    printf "Update to %s? [Y/n]: " "$_latest"
+    read -r _upd_confirm
+    case "$_upd_confirm" in
+      n|N|no|No|NO) echo "Aborted."; exit 0 ;;
+    esac
+    UPDATE_MODE=true
+    TEMPLATE="${_existing%@*}"
+    VERSION_TAG="$_latest"
+  elif [[ -d "${TARGET}/.devcontainer" ]]; then
+    printf "\n${_BOLD}WARNING:${_RESET} Existing (unversioned) devcontainer found.\n"
+    printf "Updating will overwrite devcontainer.json and docker-compose.yml.\n"
+    printf "Review these files after update. Continue? [Y/n]: "
+    read -r _upd_confirm
+    case "$_upd_confirm" in
+      n|N|no|No|NO) echo "Aborted."; exit 0 ;;
+    esac
+  fi
+
   echo ""
   echo "  Template : $TEMPLATE"
   echo "  Target   : $TARGET"
@@ -104,6 +152,16 @@ for t in "${TEMPLATES[@]}"; do [[ "$t" == "$TEMPLATE" ]] && valid=true && break;
 if [[ "$valid" == false ]]; then
   echo "ERROR: unknown template '${TEMPLATE}'. Available: ${TEMPLATES[*]}" >&2
   exit 1
+fi
+
+# Resolve the version tag to use for fetching files.
+if [[ -z "$VERSION_TAG" ]]; then
+  VERSION_TAG=$(_resolve_latest_tag)
+fi
+
+# In remote mode, switch REPO base URL to the resolved tag so all fetches are versioned.
+if [[ "$LOCAL_MODE" == false ]]; then
+  REPO="https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/${VERSION_TAG}"
 fi
 
 [[ -d "$TARGET" ]] || { echo "ERROR: '${TARGET}' is not a directory" >&2; exit 1; }
@@ -251,6 +309,9 @@ if ! grep -qF '.devcontainer/.data/' "$GITIGNORE" 2>/dev/null; then
   printf '\n# Claude Code devcontainer — local state (credentials, history)\n.devcontainer/.data/\n' >> "$GITIGNORE"
   echo "  Added .devcontainer/.data/ to ${GITIGNORE}"
 fi
+
+# Write version stamp
+echo "${TEMPLATE}@${VERSION_TAG}" > "${DEST}/.upstream-version"
 
 echo ""
 echo "Open ${TARGET} in VS Code → Reopen in Container."

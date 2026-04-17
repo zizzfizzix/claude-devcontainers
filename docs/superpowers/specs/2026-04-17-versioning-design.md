@@ -62,12 +62,36 @@ Users never edit `sync` files directly. Instead, additive override files are sou
 
 On first install, stub versions of each override file are created with explanatory comments. These stubs are `init`-flagged so they are never overwritten.
 
-### 4. Extensions Feature
+### 4. Extensions
 
-A new `./features/vscode-extensions` devcontainer feature replaces the `__VSCODE_EXTENSIONS__` sed substitution. It reads two files at container build time:
+#### Registry — `base/extensions.json` (sync)
 
-- `selected-extensions.json` — upstream defaults; `sync` tier, always overwritten on update
-- `selected-extensions.local.json` — written by `install.sh` from the interactive selection at install time; `init` tier (never overwritten); user can edit freely to add/remove extensions
+The extension registry moves out of `install.sh` into a standalone `base/extensions.json` data file:
+
+```json
+[
+  {"id": "Anthropic.claude-code",              "label": "Claude Code",           "tier": "base",     "scopes": ["all"]},
+  {"id": "eamodio.gitlens",                    "label": "GitLens",               "tier": "base",     "scopes": ["all"]},
+  {"id": "dbaeumer.vscode-eslint",             "label": "ESLint",                "tier": "optional", "default": true,  "scopes": ["typescript"]},
+  {"id": "esbenp.prettier-vscode",             "label": "Prettier",              "tier": "optional", "default": true,  "scopes": ["typescript", "php"]},
+  ...
+]
+```
+
+Two tiers:
+- **`base`** — always installed; never shown in the interactive selection UI; written into `selected-extensions.json` on install/update
+- **`optional`** — presented in the toggle UI at install time; user's choices written to `selected-extensions.local.json`
+
+`install.sh` requires `jq` to read this file. It checks for `jq` at startup and exits with a clear install instruction if missing.
+
+#### Runtime — `./features/vscode-extensions` (new devcontainer feature)
+
+Replaces the `__VSCODE_EXTENSIONS__` sed substitution. Reads at container build time:
+
+- `selected-extensions.json` — base extensions written by `install.sh`/`update.sh`; `sync` tier
+- `selected-extensions.local.json` — optional selections from interactive install; `init` tier; user edits freely
+
+Merges both lists (deduplicating) and installs them as VS Code extensions.
 
 This eliminates the only substitution in `devcontainer.json` that produced invalid JSON. The remaining substitutions (`__PROJECT_NAME__`, `__WORKSPACE_FOLDER__`) are valid JSON strings and cause no validation errors. No templating language is needed.
 
@@ -113,12 +137,13 @@ Accepting runs the full update flow and writes the stamp for the first time. The
 
 | File | Change |
 |------|--------|
-| `install.sh` | Add `--version` flag, latest-tag resolution, auto-detect update flow, write stamp, create override stubs |
-| `templates/*/manifest.txt` | All files become `sync` except `.data/claude/*` which stay `init`; add `selected-extensions.json` |
+| `install.sh` | Add `jq` check, `--version` flag, latest-tag resolution, auto-detect update flow, write stamp, create override stubs; read extension registry from `base/extensions.json` |
+| `base/extensions.json` | New: extension registry with `base`/`optional` tiers and per-template scopes |
+| `templates/*/manifest.txt` | All files become `sync` except `.data/claude/*` which stay `init`; add `selected-extensions.json`; add stub override files as `init` |
 | `templates/*/devcontainer.json` | Remove `__VSCODE_EXTENSIONS__`; reference new `./features/vscode-extensions` feature |
 | `base/postcreate.sh` | Source `postcreate.local.sh` at end if present |
 | `base/poststart.sh` | Source `poststart.local.sh` at end if present |
 | `base/shell-config.zsh` | Source `shell-config.local.zsh` at end if present |
 | `base/features/vscode-extensions/` | New feature: reads + merges `selected-extensions.json` and `selected-extensions.local.json` |
-| `.devcontainer/update.sh` | New sync file: self-updating upgrade script |
-| Stub override files | New init files created on first install |
+| `base/update.sh` | New sync file: self-updating upgrade script (fetched into `.devcontainer/update.sh`) |
+| Stub override files | `docker-compose.override.yml`, `postcreate.local.sh`, `poststart.local.sh`, `shell-config.local.zsh` — created as `init` on first install |

@@ -58,40 +58,44 @@ Users never edit `sync` files directly. Instead, additive override files are sou
 | `postcreate.local.sh` | Sourced at the end of `postcreate.sh` if the file exists |
 | `poststart.local.sh` | Sourced at the end of `poststart.sh` if the file exists |
 | `shell-config.local.zsh` | Sourced at the end of `shell-config.zsh` if the file exists |
-| `selected-extensions.local.json` | Merged with `selected-extensions.json` by the vscode-extensions feature |
+| `extensions.local.json` | Merged with the catalog by the vscode-extensions feature |
 
 On first install, stub versions of each override file are created with explanatory comments. These stubs are `init`-flagged so they are never overwritten.
 
 ### 4. Extensions
 
-#### Registry — `base/extensions.json` (sync)
+#### Catalog — `features/vscode-extensions/extensions.json` (sync)
 
-The extension registry moves out of `install.sh` into a standalone `base/extensions.json` data file:
+The extension registry moves out of `install.sh` into a standalone data file, sourced from `base/extensions.json` in this repo and installed as part of the `vscode-extensions` feature:
 
 ```json
 [
-  {"id": "Anthropic.claude-code",              "label": "Claude Code",           "tier": "base",     "scopes": ["all"]},
-  {"id": "eamodio.gitlens",                    "label": "GitLens",               "tier": "base",     "scopes": ["all"]},
-  {"id": "dbaeumer.vscode-eslint",             "label": "ESLint",                "tier": "optional", "default": true,  "scopes": ["typescript"]},
-  {"id": "esbenp.prettier-vscode",             "label": "Prettier",              "tier": "optional", "default": true,  "scopes": ["typescript", "php"]},
+  {"id": "Anthropic.claude-code",  "label": "Claude Code", "tier": "base",     "scopes": ["all"]},
+  {"id": "eamodio.gitlens",        "label": "GitLens",     "tier": "base",     "scopes": ["all"]},
+  {"id": "dbaeumer.vscode-eslint", "label": "ESLint",      "tier": "optional", "default": true, "scopes": ["typescript"]},
+  {"id": "esbenp.prettier-vscode", "label": "Prettier",    "tier": "optional", "default": true, "scopes": ["typescript", "php"]},
   ...
 ]
 ```
 
 Two tiers:
-- **`base`** — always installed; never shown in the interactive selection UI; written into `selected-extensions.json` on install/update
-- **`optional`** — presented in the toggle UI at install time; user's choices written to `selected-extensions.local.json`
+- **`base`** — always installed; never shown in the interactive selection UI
+- **`optional`** — presented in the toggle UI at install time; user's choices written to `extensions.local.json`
 
 `install.sh` requires `jq` to read this file. It checks for `jq` at startup and exits with a clear install instruction if missing.
 
+#### User selections — `extensions.local.json` (init)
+
+Written by `install.sh` at install time with the user's optional selections. Named consistently with the other override files (`postcreate.local.sh`, `shell-config.local.zsh`, etc.). Never overwritten by upstream tooling. User edits it freely to add or remove optional extensions.
+
 #### Runtime — `./features/vscode-extensions` (new devcontainer feature)
 
-Replaces the `__VSCODE_EXTENSIONS__` sed substitution. Reads at container build time:
+Replaces the `__VSCODE_EXTENSIONS__` sed substitution. At container build time it reads:
 
-- `selected-extensions.json` — base extensions written by `install.sh`/`update.sh`; `sync` tier
-- `selected-extensions.local.json` — optional selections from interactive install; `init` tier; user edits freely
+- `extensions.json` — the catalog (bundled with the feature, `sync`)
+- `extensions.local.json` — user's optional selections (`init`)
 
-Merges both lists (deduplicating) and installs them as VS Code extensions.
+Installs all `base` extensions plus everything in `extensions.local.json`, deduplicating.
 
 This eliminates the only substitution in `devcontainer.json` that produced invalid JSON. The remaining substitutions (`__PROJECT_NAME__`, `__WORKSPACE_FOLDER__`) are valid JSON strings and cause no validation errors. No templating language is needed.
 
@@ -137,13 +141,13 @@ Accepting runs the full update flow and writes the stamp for the first time. The
 
 | File | Change |
 |------|--------|
-| `install.sh` | Add `jq` check, `--version` flag, latest-tag resolution, auto-detect update flow, write stamp, create override stubs; read extension registry from `base/extensions.json` |
-| `base/extensions.json` | New: extension registry with `base`/`optional` tiers and per-template scopes |
-| `templates/*/manifest.txt` | All files become `sync` except `.data/claude/*` which stay `init`; add `selected-extensions.json`; add stub override files as `init` |
+| `install.sh` | Add `jq` check, `--version` flag, latest-tag resolution, auto-detect update flow, write stamp, create override stubs; read extension catalog from `base/extensions.json` |
+| `base/extensions.json` | New: extension catalog with `base`/`optional` tiers and per-template scopes |
+| `templates/*/manifest.txt` | All files become `sync` except `.data/claude/*` which stay `init`; add stub override files as `init` |
 | `templates/*/devcontainer.json` | Remove `__VSCODE_EXTENSIONS__`; reference new `./features/vscode-extensions` feature |
 | `base/postcreate.sh` | Source `postcreate.local.sh` at end if present |
 | `base/poststart.sh` | Source `poststart.local.sh` at end if present |
 | `base/shell-config.zsh` | Source `shell-config.local.zsh` at end if present |
-| `base/features/vscode-extensions/` | New feature: reads + merges `selected-extensions.json` and `selected-extensions.local.json` |
+| `base/features/vscode-extensions/` | New feature: bundles `extensions.json` catalog; reads + merges with `extensions.local.json` at build time |
 | `base/update.sh` | New sync file: self-updating upgrade script (fetched into `.devcontainer/update.sh`) |
-| Stub override files | `docker-compose.override.yml`, `postcreate.local.sh`, `poststart.local.sh`, `shell-config.local.zsh` — created as `init` on first install |
+| Stub override files | `docker-compose.override.yml`, `postcreate.local.sh`, `poststart.local.sh`, `shell-config.local.zsh`, `extensions.local.json` — created as `init` on first install |

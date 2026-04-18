@@ -90,6 +90,19 @@ Each template is versioned independently via Release Please (manifest mode):
 - Use indexed arrays only — no associative arrays (`declare -A`)
 - Test with `bash --version` if unsure; macOS ships 3.2 due to GPLv3 licensing
 
+## Credential Forwarding Pattern
+
+Host credentials are forwarded into the container via `initializeCommand` + `env_file`. The pattern for each service:
+
+1. `src/base/init-<service>-token.sh` — reads env vars on the host, writes them to `.data/.env.<service>`; runs as `initializeCommand` before the container starts
+2. `docker-compose.yml` — loads `.data/.env.<service>` as an `env_file` (required: false) and mounts a config volume (e.g. `.data/acli-config:/home/vscode/.config/acli`)
+3. `postcreate.sh` — authenticates the CLI tool if the credentials are present
+4. `manifest.txt` — adds the `init-<service>-token.sh` script as a sync file
+
+Current credential forwarding integrations:
+- **gh** — `GITHUB_TOKEN` → `init-gh-token.sh` → `.data/.env.gh`
+- **acli** — `ATLASSIAN_API_TOKEN` / `ATLASSIAN_EMAIL` / `ATLASSIAN_SITE` → `init-acli-token.sh` → `.data/.env.acli`; `postcreate.sh` runs `acli jira/confluence auth login`
+
 ## Adding a Template
 
 1. Create `src/templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`, `version.txt` (start at `0.0.0`)

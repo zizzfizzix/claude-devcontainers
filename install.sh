@@ -44,7 +44,7 @@ fi
 
 _resolve_latest_tag() {
   if [[ "$LOCAL_MODE" == true ]]; then
-    git -C "$REPO" describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0-local"
+    git -C "$REPO" describe --tags --match "${TEMPLATE}-v*" --abbrev=0 2>/dev/null || echo "${TEMPLATE}-v0.0.0-local"
   else
     curl -fsSL "https://api.github.com/repos/zizzfizzix/claude-devcontainers/releases/latest" \
       | jq -r '.tag_name'
@@ -184,9 +184,9 @@ mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 
 # --- Fetch extension catalog ---
 if [[ "$LOCAL_MODE" == true ]]; then
-  EXT_CATALOG_JSON=$(cat "${REPO}/base/extensions.json")
+  EXT_CATALOG_JSON=$(cat "${REPO}/src/base/extensions.json")
 else
-  EXT_CATALOG_JSON=$(curl -fsSL "${REPO}/base/extensions.json")
+  EXT_CATALOG_JSON=$(curl -fsSL "${REPO}/src/base/extensions.json")
 fi
 
 # Build arrays of optional extensions scoped to this template
@@ -266,9 +266,9 @@ _inject_extensions() {
 }
 
 if [[ "$LOCAL_MODE" == true ]]; then
-  MANIFEST=$(cat "${REPO}/templates/${TEMPLATE}/manifest.txt")
+  MANIFEST=$(cat "${REPO}/src/templates/${TEMPLATE}/manifest.txt")
 else
-  MANIFEST=$(curl -fsSL "${REPO}/templates/${TEMPLATE}/manifest.txt")
+  MANIFEST=$(curl -fsSL "${REPO}/src/templates/${TEMPLATE}/manifest.txt")
 fi
 
 while IFS=: read -r src dest flag; do

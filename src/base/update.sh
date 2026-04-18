@@ -36,7 +36,7 @@ if [[ "${_DC_UPDATING:-}" != "1" ]]; then
   LATEST_TAG=$(_resolve_latest_tag)
   [[ "$LATEST_TAG" == "null" || -z "$LATEST_TAG" ]] && { echo "ERROR: could not resolve latest release tag from GitHub API. Check your network connection." >&2; exit 1; }
   TMP_SELF=$(mktemp)
-  curl -fsSL "${RAW_BASE}/${LATEST_TAG}/base/update.sh" > "$TMP_SELF"
+  curl -fsSL "${RAW_BASE}/${LATEST_TAG}/src/base/update.sh" > "$TMP_SELF"
   _DC_UPDATING=1 _DC_LATEST_TAG="$LATEST_TAG" exec bash "$TMP_SELF"
 fi
 
@@ -70,7 +70,7 @@ SAFE_PROJECT_NAME=$(_sed_escape "$PROJECT_NAME")
 SAFE_WORKSPACE_FOLDER=$(_sed_escape "$WORKSPACE_FOLDER")
 
 # ── Phase 4: sync upstream files ───────────────────────────────────────────────
-MANIFEST=$(curl -fsSL "${RAW_BASE}/${LATEST_TAG}/templates/${TEMPLATE}/manifest.txt")
+MANIFEST=$(curl -fsSL "${RAW_BASE}/${LATEST_TAG}/src/templates/${TEMPLATE}/manifest.txt")
 
 while IFS=: read -r src dest flag; do
   [[ -z "$src" || "$src" == \#* ]] && continue

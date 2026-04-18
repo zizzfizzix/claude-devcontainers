@@ -6,9 +6,9 @@ Baseline devcontainer configs for Claude Code — installs a firewall-restricted
 
 - Pure Bash — no build system, no package manager
 - `install.sh` — bootstraps a template into a target repo (local or via `curl | bash`); requires `jq`
-- `base/` — shared shell config, postcreate/poststart hooks, Claude settings, extension catalog, update script
-- `proxy/` — mitmproxy sidecar: iptables firewall + OAuth token swap
-- `templates/typescript|php|research/` — per-template `devcontainer.json`, `docker-compose.yml`, `manifest.txt`, `version.txt`
+- `src/base/` — shared shell config, postcreate/poststart hooks, Claude settings, extension catalog, update script, proxy sidecar
+- `src/base/proxy/` — mitmproxy sidecar: iptables firewall + OAuth token swap
+- `src/templates/typescript|php|research/` — per-template `devcontainer.json`, `docker-compose.yml`, `manifest.txt`, `version.txt`
 - Each `manifest.txt` lists `src:dest` (sync) or `src:dest:init` (init-once) lines that `install.sh` copies/fetches
 
 ## Key Commands
@@ -27,7 +27,7 @@ CLAUDE_DEVCONTAINERS_REPO=/path/to/this/repo ./install.sh
 .devcontainer/update.sh
 
 # Lint shell scripts (if shellcheck is available)
-shellcheck install.sh base/*.sh proxy/start.sh
+shellcheck install.sh src/base/*.sh src/base/proxy/start.sh
 ```
 
 ## Manifest File Tiers
@@ -52,7 +52,7 @@ Never add `*.local.*` files to `manifest.txt` — they are project-owned and saf
 
 ## Extensions
 
-`base/extensions.json` is the extension catalog. Each entry has:
+`src/base/extensions.json` is the extension catalog. Each entry has:
 
 - `id` — VS Code extension ID
 - `label` — display name shown in the install prompt
@@ -77,9 +77,9 @@ During install, `jq` injects selected extensions into `devcontainer.json`. User 
 
 Each template is versioned independently via Release Please (manifest mode):
 
-- `templates/<name>/version.txt` — current version for that template
+- `src/templates/<name>/version.txt` — current version for that template
 - `.release-please-manifest.json` — Release Please state
-- `release-please-config.json` — package definitions; `base/` and `proxy/` changes bump all templates
+- `release-please-config.json` — package definitions; `src/base/` changes bump all templates
 - GitHub releases tagged as `typescript-v1.0.0`, `php-v1.0.0`, `research-v1.0.0`
 
 ## Shell Compatibility
@@ -92,9 +92,9 @@ Each template is versioned independently via Release Please (manifest mode):
 
 ## Adding a Template
 
-1. Create `templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`, `version.txt` (start at `0.0.0`)
+1. Create `src/templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`, `version.txt` (start at `0.0.0`)
 2. Add `<name>` to the `TEMPLATES` and `DESCRIPTIONS` arrays in `install.sh`
 3. Add a package entry to `release-please-config.json` and `.release-please-manifest.json`
-4. Add relevant scopes to entries in `base/extensions.json` if needed
+4. Add relevant scopes to entries in `src/base/extensions.json` if needed
 
 Update this file when you discover project conventions, preferences, or patterns worth preserving for future Claude Code sessions — keep it under 300 lines.

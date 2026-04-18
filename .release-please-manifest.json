@@ -1,5 +1,5 @@
 {
-  "templates/typescript": "1.0.0",
-  "templates/php": "1.0.0",
-  "templates/research": "1.0.0"
+  "src/templates/typescript": "1.0.0",
+  "src/templates/php": "1.0.0",
+  "src/templates/research": "1.0.0"
 }

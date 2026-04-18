@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/zizzfizzix/claude-devcontainers/compare/research-v1.0.0...research-v1.1.0) (2026-04-18)
+
+
+### Features
+
+* add python and node to all templates ([01f73c0](https://github.com/zizzfizzix/claude-devcontainers/commit/01f73c087c7913a73a1277b92f217ed5ac564e0e))
+
 ## 1.0.0 (2026-04-18)
 
 

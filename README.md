@@ -146,7 +146,7 @@ Host credentials are forwarded into the container before it starts via `initiali
 
 ### GitHub CLI (`gh`)
 
-Set `GITHUB_TOKEN` on the host — it is forwarded automatically and `gh` works inside the container without any manual login.
+If `gh` is installed and authenticated on the host, the token is read automatically via `gh auth token` and forwarded into the container — no manual setup required.
 
 ### Atlassian CLI (`acli`)
 

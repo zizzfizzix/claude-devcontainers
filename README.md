@@ -140,6 +140,26 @@ claude-proxy:
     UNRESTRICTED_NETWORK: "true"
 ```
 
+## Forwarding host credentials
+
+Host credentials are forwarded into the container before it starts via `initializeCommand` scripts. Each integration reads env vars from the host, writes them to `.devcontainer/.data/`, and the container loads them at startup.
+
+### GitHub CLI (`gh`)
+
+Set `GITHUB_TOKEN` on the host — it is forwarded automatically and `gh` works inside the container without any manual login.
+
+### Atlassian CLI (`acli`)
+
+Set the following env vars on the host before opening in container:
+
+| Variable | Description |
+| -------- | ----------- |
+| `ATLASSIAN_API_TOKEN` | Atlassian API token |
+| `ATLASSIAN_EMAIL` | Account email |
+| `ATLASSIAN_SITE` | Site name (e.g. `myorg.atlassian.net`) |
+
+`postcreate.sh` will authenticate `acli` for both Jira and Confluence automatically. If the vars are not set, the step is silently skipped.
+
 ## Git worktree helper
 
 `claude-wt.zsh` provides a `claude-wt <branch>` function that creates a git worktree for `<branch>`, injects a one-shot VS Code task to launch Claude Code, and reopens VS Code into that worktree. Useful for running multiple Claude sessions on different branches simultaneously.

@@ -11,6 +11,7 @@ services:
       - ./.data/history:/commandhistory
       - ./.data/claude:/home/vscode/.claude
       - ./.data/certs:/proxy-certs:ro
+      - ~/.config/gh:/home/vscode/.config/gh:ro
     environment:
       TZ: ${TZ:-UTC}
       NODE_OPTIONS: "--max-old-space-size=4096"
@@ -19,6 +20,9 @@ services:
       POWERLEVEL9K_DISABLE_GITSTATUS: "true"
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       REQUESTS_CA_BUNDLE: "/etc/ssl/certs/ca-certificates.crt"
+    env_file:
+      - path: ./.data/.env.gh
+        required: false
     command: sleep infinity
 
   claude-proxy:

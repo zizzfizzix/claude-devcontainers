@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/zizzfizzix/claude-devcontainers/compare/research-v1.1.0...research-v1.2.0) (2026-04-18)
+
+
+### Features
+
+* add gh cli to all templates ([b0daf4f](https://github.com/zizzfizzix/claude-devcontainers/commit/b0daf4f3d6b40d1f0eb04b24cce346a4e1caaecc))
+* forward acli credentials ([dbdaf40](https://github.com/zizzfizzix/claude-devcontainers/commit/dbdaf40f2554585c3c991dc42bc90f00f786edd3))
+
 ## [1.1.0](https://github.com/zizzfizzix/claude-devcontainers/compare/research-v1.0.0...research-v1.1.0) (2026-04-18)
 
 

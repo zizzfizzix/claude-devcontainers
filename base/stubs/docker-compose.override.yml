@@ -1,0 +1,20 @@
+# docker-compose.override.yml — project-local Docker Compose overrides.
+#
+# Docker Compose automatically merges this file with docker-compose.yml.
+# Use it to add extra services (databases, caches, etc.) or override
+# service settings without editing the upstream docker-compose.yml.
+#
+# This file is never overwritten by upstream updates.
+#
+# Example — add a Postgres service:
+#
+# services:
+#   postgres:
+#     image: postgres:16
+#     environment:
+#       POSTGRES_PASSWORD: secret
+#     volumes:
+#       - postgres-data:/var/lib/postgresql/data
+#
+# volumes:
+#   postgres-data:

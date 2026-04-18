@@ -26,6 +26,11 @@ else
   _BOLD=''; _DIM=''; _GREEN=''; _BLUE=''; _RESET=''
 fi
 
+command -v jq >/dev/null 2>&1 || {
+  echo "ERROR: jq is required. Install with: brew install jq  (macOS) or  apt install jq  (Linux)" >&2
+  exit 1
+}
+
 REPO="${CLAUDE_DEVCONTAINERS_REPO:-https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/main}"
 
 # Detect local mode: REPO is a local path if it starts with /, ./, or ../
@@ -37,12 +42,46 @@ else
   LOCAL_MODE=false
 fi
 
+_resolve_latest_tag() {
+  if [[ "$LOCAL_MODE" == true ]]; then
+    git -C "$REPO" describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0-local"
+  else
+    curl -fsSL "https://api.github.com/repos/zizzfizzix/claude-devcontainers/releases/latest" \
+      | jq -r '.tag_name'
+  fi
+}
+
 TEMPLATES=(typescript php research)
 DESCRIPTIONS=(
   "typescript  – Node.js / TypeScript (npm registry access)"
   "php         – PHP 8.2 + Composer (packagist / WordPress domains)"
   "research    – Markdown / notes (unrestricted network)"
 )
+
+# Parse named flags before positional args
+VERSION_TAG=""
+UPDATE_MODE=false
+_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) VERSION_TAG="$2"; shift 2 ;;
+    --update)  UPDATE_MODE=true; shift ;;
+    *)         _ARGS+=("$1"); shift ;;
+  esac
+done
+if [[ ${#_ARGS[@]} -gt 0 ]]; then
+  set -- "${_ARGS[@]}"
+else
+  set --
+fi
+
+# If --update with no template arg, read template from the stamp in the current/target directory.
+if [[ "$UPDATE_MODE" == true && $# -eq 0 ]]; then
+  _target_stamp="${1:-.}/.devcontainer/.upstream-version"
+  [[ ! -f "$_target_stamp" ]] && { echo "ERROR: no .upstream-version found. Run install.sh without --update for a fresh install." >&2; exit 1; }
+  _stamp_content=$(cat "$_target_stamp")
+  set -- "${_stamp_content%@*}"
+fi
 
 if [[ $# -eq 0 && ! ( -t 0 && -t 1 ) ]]; then
   printf "ERROR: no template specified. When piping, pass the template explicitly:\n" >&2
@@ -70,6 +109,29 @@ elif [[ $# -eq 0 ]]; then
   raw_target="${raw_target:-.}"
   TARGET="$(cd "$raw_target" && pwd)"
 
+  VERSION_STAMP="${TARGET}/.devcontainer/.upstream-version"
+  if [[ -f "$VERSION_STAMP" ]]; then
+    _existing=$(cat "$VERSION_STAMP")
+    _latest=$(_resolve_latest_tag)
+    printf "\n${_BOLD}Existing devcontainer found:${_RESET} %s\n" "$_existing"
+    printf "Update to %s? [Y/n]: " "$_latest"
+    read -r _upd_confirm
+    case "$_upd_confirm" in
+      n|N|no|No|NO) echo "Aborted."; exit 0 ;;
+    esac
+    UPDATE_MODE=true
+    TEMPLATE="${_existing%@*}"
+    VERSION_TAG="$_latest"
+  elif [[ -d "${TARGET}/.devcontainer" ]]; then
+    printf "\n${_BOLD}WARNING:${_RESET} Existing (unversioned) devcontainer found.\n"
+    printf "Updating will overwrite devcontainer.json and docker-compose.yml.\n"
+    printf "Review these files after update. Continue? [Y/n]: "
+    read -r _upd_confirm
+    case "$_upd_confirm" in
+      n|N|no|No|NO) echo "Aborted."; exit 0 ;;
+    esac
+  fi
+
   echo ""
   echo "  Template : $TEMPLATE"
   echo "  Target   : $TARGET"
@@ -92,6 +154,17 @@ if [[ "$valid" == false ]]; then
   exit 1
 fi
 
+# Resolve the version tag to use for fetching files.
+if [[ -z "$VERSION_TAG" ]]; then
+  VERSION_TAG=$(_resolve_latest_tag)
+  [[ "$VERSION_TAG" == "null" || -z "$VERSION_TAG" ]] && { echo "ERROR: could not resolve latest release tag from GitHub API. Check your network connection." >&2; exit 1; }
+fi
+
+# In remote mode, switch REPO base URL to the resolved tag so all fetches are versioned.
+if [[ "$LOCAL_MODE" == false ]]; then
+  REPO="https://raw.githubusercontent.com/zizzfizzix/claude-devcontainers/${VERSION_TAG}"
+fi
+
 [[ -d "$TARGET" ]] || { echo "ERROR: '${TARGET}' is not a directory" >&2; exit 1; }
 
 DEST="${TARGET}/.devcontainer"
@@ -109,38 +182,35 @@ SAFE_WORKSPACE_FOLDER=$(_sed_escape "$WORKSPACE_FOLDER")
 # Create the bind-mount data directories and keep them out of git.
 mkdir -p "${DEST}/.data/history" "${DEST}/.data/proxy" "${DEST}/.data/certs"
 
-# --- VS Code extension selection ---
-# Format: "extension-id|Display Label|default(1=on)|scope(all or comma-sep template names)"
-_EXT_REGISTRY=(
-  "Anthropic.claude-code|Claude Code|1|all"
-  "CodeSmith.markdown-inline-editor-vscode|Markdown Inline Editor|1|all"
-  "yzhang.markdown-all-in-one|Markdown All-in-One|1|all"
-  "MermaidChart.vscode-mermaid-chart|Mermaid Chart|1|all"
-  "eamodio.gitlens|GitLens|1|all"
-  "jackiotyu.git-worktree-manager|Git Worktree Manager|1|all"
-  "dbaeumer.vscode-eslint|ESLint|1|typescript"
-  "esbenp.prettier-vscode|Prettier|1|typescript,php"
-  "bmewburn.vscode-intelephense-client|PHP Intelephense|1|php"
-  "xdebug.php-debug|PHP Debug|1|php"
-  "davidanson.vscode-markdownlint|Markdownlint|1|research"
-)
+# --- Fetch extension catalog ---
+if [[ "$LOCAL_MODE" == true ]]; then
+  EXT_CATALOG_JSON=$(cat "${REPO}/base/extensions.json")
+else
+  EXT_CATALOG_JSON=$(curl -fsSL "${REPO}/base/extensions.json")
+fi
 
+# Build arrays of optional extensions scoped to this template
 _EXT_IDS=(); _EXT_LABELS=(); _EXT_STATES=()
-for _entry in "${_EXT_REGISTRY[@]}"; do
-  IFS='|' read -r _eid _elabel _edefault _escopes <<< "$_entry"
-  if [[ "$_escopes" == "all" || ",$_escopes," == *",$TEMPLATE,"* ]]; then
-    _EXT_IDS+=("$_eid"); _EXT_LABELS+=("$_elabel"); _EXT_STATES+=("$_edefault")
-  fi
-done
+while IFS= read -r _entry; do
+  _eid=$(printf '%s' "$_entry"    | jq -r '.id')
+  _elabel=$(printf '%s' "$_entry" | jq -r '.label')
+  _edefault=$(printf '%s' "$_entry" | jq -r '.default // true')
+  _EXT_IDS+=("$_eid")
+  _EXT_LABELS+=("$_elabel")
+  [[ "$_edefault" == "true" ]] && _EXT_STATES+=(1) || _EXT_STATES+=(0)
+done < <(printf '%s' "$EXT_CATALOG_JSON" | jq -c --arg t "$TEMPLATE" \
+  '.[] | select(.tier == "optional" and (.scopes | (contains(["all"]) or contains([$t]))))')
 
-if [[ -t 0 && -t 1 ]]; then
+# Interactive extension toggle UI
+EXT_LOCAL="${DEST}/extensions.local.json"
+if [[ -t 0 && -t 1 && ( "$UPDATE_MODE" != true || ! -f "$EXT_LOCAL" ) ]]; then
   while true; do
     printf "\n${_BLUE}VS Code extensions${_RESET} — toggle by number, Enter to accept:\n\n"
     for _i in "${!_EXT_IDS[@]}"; do
       if [[ "${_EXT_STATES[$_i]}" == "1" ]]; then
-        printf "  ${_GREEN}[x]${_RESET} %2d. %-30s ${_DIM}%s${_RESET}\n" "$((_i+1))" "${_EXT_LABELS[$_i]}" "${_EXT_IDS[$_i]}"
+        printf "  ${_GREEN}[x]${_RESET} %2d. %-40s ${_DIM}%s${_RESET}\n" "$((_i+1))" "${_EXT_LABELS[$_i]}" "${_EXT_IDS[$_i]}"
       else
-        printf "  ${_DIM}[ ] %2d. %-30s %s${_RESET}\n" "$((_i+1))" "${_EXT_LABELS[$_i]}" "${_EXT_IDS[$_i]}"
+        printf "  ${_DIM}[ ] %2d. %-40s %s${_RESET}\n" "$((_i+1))" "${_EXT_LABELS[$_i]}" "${_EXT_IDS[$_i]}"
       fi
     done
     echo ""
@@ -155,14 +225,6 @@ if [[ -t 0 && -t 1 ]]; then
   done
 fi
 
-_VSCODE_EXT_JSON=""
-for _i in "${!_EXT_IDS[@]}"; do
-  [[ "${_EXT_STATES[$_i]}" == "1" ]] || continue
-  [[ -n "$_VSCODE_EXT_JSON" ]] && _VSCODE_EXT_JSON+=", "
-  _VSCODE_EXT_JSON+="\"${_EXT_IDS[$_i]}\""
-done
-SAFE_VSCODE_EXTENSIONS=$(_sed_escape "$_VSCODE_EXT_JSON")
-
 # Fetch every file listed in the template's manifest.
 # Format: src:dest[:init]
 #   src   — path relative to repo root
@@ -175,6 +237,32 @@ _fetch_file() {
   else
     curl -fsSL "${REPO}/${src}"
   fi
+}
+
+_inject_extensions() {
+  local devcontainer_file="$1"
+  local catalog_file="$2"
+  local local_file="$3"
+  local template="$4"
+
+  local base_exts
+  base_exts=$(jq --arg t "$template" \
+    '[.[] | select(.tier == "base" and (.scopes | (contains(["all"]) or contains([$t])))) | .id]' \
+    "$catalog_file")
+
+  local all_exts
+  if [[ -f "$local_file" ]]; then
+    all_exts=$(jq -n --argjson base "$base_exts" --argjson local "$(cat "$local_file")" \
+      '$base + $local | unique')
+  else
+    all_exts="$base_exts"
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  jq --argjson exts "$all_exts" '.customizations.vscode.extensions = $exts' \
+    "$devcontainer_file" > "$tmp"
+  mv "$tmp" "$devcontainer_file"
 }
 
 if [[ "$LOCAL_MODE" == true ]]; then
@@ -194,7 +282,7 @@ while IFS=: read -r src dest flag; do
   mkdir -p "$(dirname "$outfile")"
   TMP=$(mktemp)
   if ! _fetch_file "$src" \
-    | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g;s|__VSCODE_EXTENSIONS__|${SAFE_VSCODE_EXTENSIONS}|g" \
+    | sed "s|__PROJECT_NAME__|${SAFE_PROJECT_NAME}|g;s|__WORKSPACE_FOLDER__|${SAFE_WORKSPACE_FOLDER}|g" \
     > "$TMP"; then
     rm -f "$TMP"
     echo "ERROR: failed to fetch '$src'" >&2
@@ -203,11 +291,28 @@ while IFS=: read -r src dest flag; do
   mv "$TMP" "$outfile"
 done <<< "$MANIFEST"
 
+# Write extensions.local.json from the user's optional selections (init — created once).
+if [[ ! -f "$EXT_LOCAL" ]]; then
+  _SELECTED_EXTS=""
+  for _i in "${!_EXT_IDS[@]}"; do
+    [[ "${_EXT_STATES[$_i]}" == "1" ]] || continue
+    [[ -n "$_SELECTED_EXTS" ]] && _SELECTED_EXTS+=","
+    _SELECTED_EXTS+="\"${_EXT_IDS[$_i]}\""
+  done
+  printf '[%s]\n' "$_SELECTED_EXTS" > "$EXT_LOCAL"
+fi
+
+# Inject the merged extensions list into devcontainer.json.
+_inject_extensions "${DEST}/devcontainer.json" "${DEST}/extensions.json" "$EXT_LOCAL" "$TEMPLATE"
+
 GITIGNORE="${TARGET}/.gitignore"
 if ! grep -qF '.devcontainer/.data/' "$GITIGNORE" 2>/dev/null; then
   printf '\n# Claude Code devcontainer — local state (credentials, history)\n.devcontainer/.data/\n' >> "$GITIGNORE"
   echo "  Added .devcontainer/.data/ to ${GITIGNORE}"
 fi
+
+# Write version stamp
+echo "${TEMPLATE}@${VERSION_TAG}" > "${DEST}/.upstream-version"
 
 echo ""
 echo "Open ${TARGET} in VS Code → Reopen in Container."

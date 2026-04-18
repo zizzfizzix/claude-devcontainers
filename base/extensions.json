@@ -1,0 +1,13 @@
+[
+  {"id": "Anthropic.claude-code",                   "label": "Claude Code",            "tier": "base",     "default": true, "scopes": ["all"]},
+  {"id": "eamodio.gitlens",                         "label": "GitLens",                "tier": "base",     "default": true, "scopes": ["all"]},
+  {"id": "CodeSmith.markdown-inline-editor-vscode", "label": "Markdown Inline Editor", "tier": "optional", "default": true, "scopes": ["all"]},
+  {"id": "yzhang.markdown-all-in-one",              "label": "Markdown All-in-One",    "tier": "optional", "default": true, "scopes": ["all"]},
+  {"id": "MermaidChart.vscode-mermaid-chart",       "label": "Mermaid Chart",          "tier": "optional", "default": true, "scopes": ["all"]},
+  {"id": "jackiotyu.git-worktree-manager",          "label": "Git Worktree Manager",   "tier": "optional", "default": true, "scopes": ["all"]},
+  {"id": "dbaeumer.vscode-eslint",                  "label": "ESLint",                 "tier": "optional", "default": true, "scopes": ["typescript"]},
+  {"id": "esbenp.prettier-vscode",                  "label": "Prettier",               "tier": "optional", "default": true, "scopes": ["typescript", "php"]},
+  {"id": "bmewburn.vscode-intelephense-client",     "label": "PHP Intelephense",       "tier": "optional", "default": true, "scopes": ["php"]},
+  {"id": "xdebug.php-debug",                        "label": "PHP Debug",              "tier": "optional", "default": true, "scopes": ["php"]},
+  {"id": "davidanson.vscode-markdownlint",          "label": "Markdownlint",           "tier": "optional", "default": true, "scopes": ["research"]}
+]

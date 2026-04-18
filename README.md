@@ -2,6 +2,8 @@
 
 Baseline devcontainer configs for [Claude Code](https://claude.ai/code). Adds a secure, firewall-restricted dev environment to any repo in one command.
 
+> **Requires [`jq`](https://jqlang.github.io/jq/)** — used by the installer and updater to manage extensions.
+
 ## Bootstrap a new repo
 
 **Interactive** — prompts for template, target directory, and VS Code extensions:
@@ -24,6 +26,16 @@ Then open the folder in VS Code → **Reopen in Container**.
 ### Windows
 
 The installer works in **Git Bash** (ships with [Git for Windows](https://gitforwindows.org/)). Use the non-interactive form (`curl | bash -s -- typescript`) — `bash <(...)` process substitution is not supported in Git Bash.
+
+## Updating an existing install
+
+Run `update.sh` from inside the container (or directly on the host):
+
+```bash
+.devcontainer/update.sh
+```
+
+The updater fetches the latest upstream version of itself first, then syncs all upstream-owned files while leaving your project-local customizations untouched. It prints a GitHub compare URL so you can review what changed.
 
 ## Templates
 
@@ -56,16 +68,47 @@ Credentials are persisted in `.devcontainer/.data/proxy/credentials.json` and su
 ```
 .devcontainer/
 ├── proxy/
-│   ├── Dockerfile        # mitmproxy sidecar image
-│   ├── addon.py          # token swap + request inspection
-│   └── start.sh          # firewall setup + transparent proxy launch
-├── claude-wt.zsh         # git worktree helper for multi-branch Claude sessions
+│   ├── Dockerfile                  # mitmproxy sidecar image
+│   ├── addon.py                    # token swap + request inspection
+│   └── start.sh                    # firewall setup + transparent proxy launch
+├── claude-wt.zsh                   # git worktree helper for multi-branch Claude sessions
 ├── devcontainer.json
 ├── docker-compose.yml
+├── docker-compose.override.yml     # project-local Docker Compose overrides (yours to edit)
+├── extensions.json                 # upstream extension catalog
+├── extensions.local.json           # your extension selections (generated on install)
 ├── postcreate.sh
+├── postcreate.local.sh             # project-local post-create hook (yours to edit)
 ├── poststart.sh
-└── shell-config.zsh
+├── poststart.local.sh              # project-local post-start hook (yours to edit)
+├── shell-config.zsh
+├── shell-config.local.zsh          # project-local shell config (yours to edit)
+├── update.sh                       # upstream update script
+└── .upstream-version               # version stamp, e.g. typescript@v1.2.0
 ```
+
+Files marked "yours to edit" are installed once and never overwritten by `update.sh`.
+
+## Customizing without forking
+
+`update.sh` distinguishes between **upstream-owned** files (always synced) and **project-local** files (installed once, never touched again). Customize via the local files:
+
+| What you want to customize | File to edit |
+| -------------------------- | ------------ |
+| Extra packages, repo setup | `postcreate.local.sh` |
+| Per-session startup logic  | `poststart.local.sh` |
+| Shell aliases, exports     | `shell-config.local.zsh` |
+| Extra Docker services      | `docker-compose.override.yml` |
+| VS Code extension selection | `extensions.local.json` |
+
+## VS Code extensions
+
+`extensions.json` is the upstream extension catalog. Extensions have two tiers:
+
+- **base** — always installed (Claude Code, GitLens)
+- **optional** — shown in the install prompt; your choices are saved to `extensions.local.json`
+
+`update.sh` re-reads `extensions.local.json` on every upgrade so your selections survive.
 
 ## How the proxy works
 
@@ -123,35 +166,44 @@ Non-interactive:
 ├── base/
 │   ├── claude/
 │   │   └── settings.json
+│   ├── stubs/                      # init-only stub files installed into projects
 │   ├── claude-wt.zsh
-│   ├── postcreate.sh     # shared post-create hook; installs shell config
-│   ├── poststart.sh      # shared post-start hook; trusts proxy CA cert
-│   └── shell-config.zsh
+│   ├── extensions.json             # VS Code extension catalog
+│   ├── postcreate.sh
+│   ├── poststart.sh
+│   ├── shell-config.zsh
+│   └── update.sh                   # upstream update script
 ├── proxy/
-│   ├── addon.py          # mitmproxy addon: token swap + request inspection
-│   ├── Dockerfile        # mitmproxy sidecar image + firewall tools
-│   └── start.sh          # firewall setup + transparent proxy launch
+│   ├── addon.py
+│   ├── Dockerfile
+│   └── start.sh
 ├── templates/
 │   ├── php/
 │   │   ├── devcontainer.json
 │   │   ├── docker-compose.yml
-│   │   ├── manifest.txt        # files install.sh copies into a target repo
-│   │   └── postcreate-php.sh
+│   │   ├── manifest.txt
+│   │   ├── postcreate-php.sh
+│   │   └── version.txt
 │   ├── research/
 │   │   ├── devcontainer.json
 │   │   ├── docker-compose.yml
-│   │   └── manifest.txt
+│   │   ├── manifest.txt
+│   │   └── version.txt
 │   └── typescript/
 │       ├── devcontainer.json
 │       ├── docker-compose.yml
-│       └── manifest.txt
-├── .devcontainer/        # this repo's own devcontainer
+│       ├── manifest.txt
+│       └── version.txt
+├── .devcontainer/                  # this repo's own devcontainer
 │   └── devcontainer.json
+├── .release-please-manifest.json
+├── release-please-config.json
 └── install.sh
 ```
 
 ## Adding a new template
 
-1. Add `templates/<name>/devcontainer.json`, `docker-compose.yml`, and `manifest.txt`
+1. Add `templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`, and `version.txt` (start at `0.0.0`)
 2. Add `<name>` to the `TEMPLATES` and `DESCRIPTIONS` arrays in `install.sh`
-3. Add a row to the table above
+3. Add a package entry to `release-please-config.json` and `.release-please-manifest.json`
+4. Add a row to the Templates table above

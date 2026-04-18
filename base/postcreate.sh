@@ -49,3 +49,8 @@ rm -rf /tmp/zsh-ai-plugin
 # Wire up the drop-in directory in /etc/zsh/zshrc if not already done
 grep -qF 'zshrc.d' /etc/zsh/zshrc 2>/dev/null || \
   echo 'for f in /etc/zsh/zshrc.d/*.zsh; do source "$f"; done' | sudo tee -a /etc/zsh/zshrc > /dev/null
+
+# Project-local postcreate hook — create .devcontainer/postcreate.local.sh to add project-specific setup.
+if [[ -f "${DEVCONTAINER_DIR}/postcreate.local.sh" ]]; then
+  . "${DEVCONTAINER_DIR}/postcreate.local.sh"
+fi

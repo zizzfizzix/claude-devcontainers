@@ -1,0 +1,19 @@
+{
+  "packages": {
+    "templates/typescript": {
+      "release-type": "simple",
+      "component": "typescript",
+      "include-paths": ["base", "templates/typescript"]
+    },
+    "templates/php": {
+      "release-type": "simple",
+      "component": "php",
+      "include-paths": ["base", "templates/php"]
+    },
+    "templates/research": {
+      "release-type": "simple",
+      "component": "research",
+      "include-paths": ["base", "templates/research"]
+    }
+  }
+}

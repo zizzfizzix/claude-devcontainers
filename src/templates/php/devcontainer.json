@@ -3,6 +3,7 @@
   "features": {
     "ghcr.io/stu-bell/devcontainer-features/claude-code:latest": {},
     "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "latest" },
     "ghcr.io/devcontainers/features/php:1": { "version": "8.2" },
     "ghcr.io/devcontainers-extra/features/composer:1": {},
     "ghcr.io/devcontainers-extra/features/fzf:1": {},

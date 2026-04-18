@@ -2,6 +2,7 @@ src/base/claude/.claude.json:.data/claude/.claude.json:init
 src/base/claude/settings.json:.data/claude/settings.json:init
 src/base/claude-wt.zsh:claude-wt.zsh
 src/base/init-gh-token.sh:init-gh-token.sh
+src/base/init-acli-token.sh:init-acli-token.sh
 src/base/postcreate.sh:postcreate.sh
 src/base/poststart.sh:poststart.sh
 src/base/shell-config.zsh:shell-config.zsh

@@ -50,6 +50,13 @@ rm -rf /tmp/zsh-ai-plugin
 grep -qF 'zshrc.d' /etc/zsh/zshrc 2>/dev/null || \
   echo 'for f in /etc/zsh/zshrc.d/*.zsh; do source "$f"; done' | sudo tee -a /etc/zsh/zshrc > /dev/null
 
+# Authenticate acli with an API token if credentials were provided via initializeCommand.
+if [[ -n "${ATLASSIAN_API_TOKEN:-}" && -n "${ATLASSIAN_EMAIL:-}" && -n "${ATLASSIAN_SITE:-}" ]]; then
+  echo "Authenticating acli (jira + confluence)..."
+  echo "$ATLASSIAN_API_TOKEN" | acli jira auth login --site "$ATLASSIAN_SITE" --email "$ATLASSIAN_EMAIL" --token
+  echo "$ATLASSIAN_API_TOKEN" | acli confluence auth login --site "$ATLASSIAN_SITE" --email "$ATLASSIAN_EMAIL" --token
+fi
+
 # Project-local postcreate hook — create .devcontainer/postcreate.local.sh to add project-specific setup.
 if [[ -f "${DEVCONTAINER_DIR}/postcreate.local.sh" ]]; then
   . "${DEVCONTAINER_DIR}/postcreate.local.sh"

@@ -28,6 +28,8 @@ services:
         required: false
       - path: ./.data/.env.acli
         required: false
+      - path: ./.data/.env.glab
+        required: false
     # VS Code overrides this — it's here so plain `docker compose up` doesn't exit.
     command: sleep infinity
 

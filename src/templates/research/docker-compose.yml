@@ -26,6 +26,8 @@ services:
         required: false
       - path: ./.data/.env.acli
         required: false
+      - path: ./.data/.env.glab
+        required: false
     command: sleep infinity
 
   claude-proxy:

@@ -5,6 +5,7 @@
     "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
     "ghcr.io/devcontainers/features/python:1": { "version": "latest" },
     "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/skriptfabrik/devcontainer-features/gitlab-cli:1": {},
     "ghcr.io/devcontainers/features/php:1": { "version": "8.2" },
     "ghcr.io/devcontainers-extra/features/composer:1": {},
     "ghcr.io/devcontainers-extra/features/fzf:1": {},
@@ -17,7 +18,7 @@
   "portsAttributes": {
     "8081": { "label": "mitmweb UI", "protocol": "http" }
   },
-  "initializeCommand": "bash .devcontainer/init-gh-token.sh && bash .devcontainer/init-acli-token.sh",
+  "initializeCommand": "bash .devcontainer/init-gh-token.sh && bash .devcontainer/init-acli-token.sh && bash .devcontainer/init-glab-token.sh",
   "postCreateCommand": "bash __WORKSPACE_FOLDER__/.devcontainer/postcreate.sh && bash __WORKSPACE_FOLDER__/.devcontainer/postcreate-php.sh",
   "dockerComposeFile": ["docker-compose.yml", "docker-compose.override.yml"],
   "service": "devcontainer",

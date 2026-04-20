@@ -102,6 +102,7 @@ Host credentials are forwarded into the container via `initializeCommand` + `env
 Current credential forwarding integrations:
 - **gh** — `GITHUB_TOKEN` → `init-gh-token.sh` → `.data/.env.gh`
 - **acli** — `ATLASSIAN_API_TOKEN` / `ATLASSIAN_EMAIL` / `ATLASSIAN_SITE` → `init-acli-token.sh` → `.data/.env.acli`; `postcreate.sh` runs `acli jira/confluence auth login`
+- **glab** — `GITLAB_TOKEN` (+ optional `GITLAB_HOST`/`GL_HOST`) → `init-glab-token.sh` → `.data/.env.glab`; glab reads `GITLAB_TOKEN` from env directly, no explicit auth step needed
 
 ## Adding a Template
 

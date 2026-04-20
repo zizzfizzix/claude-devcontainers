@@ -160,6 +160,17 @@ Set the following env vars on the host before opening in container:
 
 `postcreate.sh` will authenticate `acli` for both Jira and Confluence automatically. If the vars are not set, the step is silently skipped.
 
+### GitLab CLI (`glab`)
+
+Set `GITLAB_TOKEN` on the host before opening in container. For self-managed or GitLab Dedicated instances, also set `GITLAB_HOST`:
+
+| Variable | Description |
+| -------- | ----------- |
+| `GITLAB_TOKEN` | GitLab personal access token |
+| `GITLAB_HOST` | GitLab instance URL (optional, defaults to `https://gitlab.com`) |
+
+`glab` reads `GITLAB_TOKEN` directly from the environment — no explicit login step is needed. If the var is not set, the step is silently skipped.
+
 ## Git worktree helper
 
 `claude-wt.zsh` provides a `claude-wt <branch>` function that creates a git worktree for `<branch>`, injects a one-shot VS Code task to launch Claude Code, and reopens VS Code into that worktree. Useful for running multiple Claude sessions on different branches simultaneously.

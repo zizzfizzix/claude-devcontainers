@@ -289,6 +289,7 @@ while IFS=: read -r src dest flag; do
     exit 1
   fi
   mv "$TMP" "$outfile"
+  [[ "$outfile" == *.sh ]] && chmod +x "$outfile"
 done <<< "$MANIFEST"
 
 # Write extensions.local.json from the user's optional selections (init — created once).

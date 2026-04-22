@@ -87,6 +87,7 @@ while IFS=: read -r src dest flag; do
     exit 1
   fi
   mv "$TMP" "$outfile"
+  [[ "$outfile" == *.sh ]] && chmod +x "$outfile"
   printf "  ${_DIM}synced${_RESET}  %s\n" "$dest"
 done <<< "$MANIFEST"
 

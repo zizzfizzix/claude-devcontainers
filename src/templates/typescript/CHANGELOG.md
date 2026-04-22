@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/zizzfizzix/claude-devcontainers/compare/typescript-v1.2.0...typescript-v1.3.0) (2026-04-22)
+
+
+### Features
+
+* add glab to all templates ([b29c7e3](https://github.com/zizzfizzix/claude-devcontainers/commit/b29c7e37729eafb93818b70ecd8e089637f65112))
+
 ## [1.2.0](https://github.com/zizzfizzix/claude-devcontainers/compare/typescript-v1.1.0...typescript-v1.2.0) (2026-04-18)
 
 

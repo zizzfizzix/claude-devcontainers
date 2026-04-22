@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${_DC_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 STAMP_FILE="${SCRIPT_DIR}/.upstream-version"
 REPO_OWNER="zizzfizzix"
 REPO_NAME="claude-devcontainers"
@@ -37,7 +37,7 @@ if [[ "${_DC_UPDATING:-}" != "1" ]]; then
   [[ "$LATEST_TAG" == "null" || -z "$LATEST_TAG" ]] && { echo "ERROR: could not resolve latest release tag from GitHub API. Check your network connection." >&2; exit 1; }
   TMP_SELF=$(mktemp)
   curl -fsSL "${RAW_BASE}/${LATEST_TAG}/src/base/update.sh" > "$TMP_SELF"
-  _DC_UPDATING=1 _DC_LATEST_TAG="$LATEST_TAG" exec bash "$TMP_SELF"
+  _DC_UPDATING=1 _DC_LATEST_TAG="$LATEST_TAG" _DC_SCRIPT_DIR="$SCRIPT_DIR" exec bash "$TMP_SELF"
 fi
 
 # ── Phase 2: read stamp ────────────────────────────────────────────────────────

@@ -13,6 +13,11 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # FIXME: release-please-config.json uses linked-versions to group src/base with all
+      # templates so that src/base changes trigger template releases. This is a workaround
+      # for the missing per-package additional-paths feature (googleapis/release-please#2534
+      # - https://github.com/googleapis/release-please/pull/2534).
+      # Side effect: a change to any single template also bumps the other two.
       - uses: googleapis/release-please-action@v4
         with:
           config-file: release-please-config.json

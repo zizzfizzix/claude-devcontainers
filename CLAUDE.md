@@ -75,12 +75,12 @@ During install, `jq` injects selected extensions into `devcontainer.json`. User 
 
 ## Versioning
 
-Each template is versioned independently via Release Please (manifest mode):
+All packages version in lockstep via Release Please (manifest mode):
 
-- `src/templates/<name>/version.txt` — current version for that template
+- `src/base/version.txt` and `src/templates/<name>/version.txt` — current version per package
 - `.release-please-manifest.json` — Release Please state
-- `release-please-config.json` — package definitions; `src/base/` changes bump all templates
-- GitHub releases tagged as `typescript-v1.0.0`, `php-v1.0.0`, `research-v1.0.0`
+- `release-please-config.json` — package definitions with `linked-versions` grouping all four packages
+- GitHub releases tagged as `base-v1.0.0`, `typescript-v1.0.0`, `php-v1.0.0`, `research-v1.0.0`
 
 ## Shell Compatibility
 
@@ -108,7 +108,7 @@ Current credential forwarding integrations:
 
 1. Create `src/templates/<name>/devcontainer.json`, `docker-compose.yml`, `manifest.txt`, `version.txt` (start at `0.0.0`)
 2. Add `<name>` to the `TEMPLATES` and `DESCRIPTIONS` arrays in `install.sh`
-3. Add a package entry to `release-please-config.json` and `.release-please-manifest.json`
+3. Add a package entry to `release-please-config.json`, add it to the `linked-versions` group, and add it to `.release-please-manifest.json`
 4. Add relevant scopes to entries in `src/base/extensions.json` if needed
 
 Update this file when you discover project conventions, preferences, or patterns worth preserving for future Claude Code sessions — keep it under 300 lines.

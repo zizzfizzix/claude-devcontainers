@@ -1,19 +1,23 @@
 {
+  "linked-versions": [
+    ["src/base", "src/templates/typescript", "src/templates/php", "src/templates/research"]
+  ],
   "packages": {
+    "src/base": {
+      "release-type": "simple",
+      "component": "base"
+    },
     "src/templates/typescript": {
       "release-type": "simple",
-      "component": "typescript",
-      "include-paths": ["src/base", "src/templates/typescript"]
+      "component": "typescript"
     },
     "src/templates/php": {
       "release-type": "simple",
-      "component": "php",
-      "include-paths": ["src/base", "src/templates/php"]
+      "component": "php"
     },
     "src/templates/research": {
       "release-type": "simple",
-      "component": "research",
-      "include-paths": ["src/base", "src/templates/research"]
+      "component": "research"
     }
   }
 }
